@@ -1,125 +1,795 @@
 <!DOCTYPE html>
-<html>
+<html lang="ta">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vijay AR Standing</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta charset="UTF-8">
+<title>TVK AR Campaign – Thalapathi Vijay</title>
 <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-
-<!-- MediaPipe -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Tiro+Tamil:ital@0;1&family=Oswald:wght@400;700&display=swap" rel="stylesheet">
 <style>
-body { margin:0; overflow:hidden; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-video, canvas {
-  position:absolute;
-  width:100%;
-  height:100%;
-  object-fit:cover;
-}
+  :root {
+    --tvk-red: #CC0000;
+    --tvk-dark: #1a0000;
+    --tvk-gold: #FFD700;
+    --tvk-white: #FFFFFF;
+    --tvk-black: #0a0a0a;
+  }
 
-button {
-  position:absolute;
-  bottom:10px;
-  left:50%;
-  transform:translateX(-50%);
-  padding:12px;
-  border:none;
-  border-radius:10px;
-  background:#ffcc00;
-  z-index:10;
-}
+  body {
+    background: #000;
+    overflow: hidden;
+    font-family: 'Oswald', sans-serif;
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+  }
+
+  /* ── CAMERA VIDEO ── */
+  #video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1); /* mirror selfie */
+    z-index: 1;
+  }
+
+  /* ── A-FRAME SCENE ── */
+  #scene-container {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  a-scene {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: transparent !important;
+  }
+
+  /* ── AR OVERLAY CANVAS ── */
+  #overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  /* ── CAPTURE CANVAS (hidden) ── */
+  #captureCanvas { display: none; }
+
+  /* ── TVK HUD FRAME ── */
+  #hud {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    pointer-events: none;
+  }
+
+  /* Top banner */
+  .hud-top {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    padding: 10px 16px 8px;
+    background: linear-gradient(180deg, rgba(180,0,0,0.92) 0%, rgba(180,0,0,0.0) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .tvk-logo-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(22px, 5vw, 36px);
+    letter-spacing: 4px;
+    color: var(--tvk-gold);
+    text-shadow: 0 0 20px rgba(255,215,0,0.6), 2px 2px 4px rgba(0,0,0,0.8);
+  }
+
+  .tvk-logo-text span {
+    color: var(--tvk-white);
+  }
+
+  .hud-top-right {
+    text-align: right;
+  }
+
+  .hud-top-right .tagline {
+    font-family: 'Tiro Tamil', serif;
+    font-size: clamp(10px, 2.5vw, 14px);
+    color: rgba(255,255,255,0.92);
+    text-shadow: 1px 1px 3px #000;
+    display: block;
+    line-height: 1.4;
+  }
+
+  /* Corner decorations */
+  .corner {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    z-index: 4;
+    pointer-events: none;
+  }
+  .corner-tl { top: 64px; left: 12px; border-top: 3px solid var(--tvk-red); border-left: 3px solid var(--tvk-red); }
+  .corner-tr { top: 64px; right: 12px; border-top: 3px solid var(--tvk-red); border-right: 3px solid var(--tvk-red); }
+  .corner-bl { bottom: 100px; left: 12px; border-bottom: 3px solid var(--tvk-red); border-left: 3px solid var(--tvk-red); }
+  .corner-br { bottom: 100px; right: 12px; border-bottom: 3px solid var(--tvk-red); border-right: 3px solid var(--tvk-red); }
+
+  /* Slogan ticker */
+  .hud-slogan {
+    position: absolute;
+    bottom: 92px;
+    left: 0; right: 0;
+    background: linear-gradient(90deg, transparent, rgba(180,0,0,0.85) 10%, rgba(180,0,0,0.85) 90%, transparent);
+    padding: 6px 20px;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .slogan-track {
+    display: flex;
+    gap: 60px;
+    animation: ticker 18s linear infinite;
+    white-space: nowrap;
+  }
+
+  .slogan-item {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(14px, 3.5vw, 22px);
+    letter-spacing: 2px;
+    color: var(--tvk-gold);
+    text-shadow: 1px 1px 0 #000;
+    flex-shrink: 0;
+  }
+
+  .slogan-item .sep {
+    color: rgba(255,255,255,0.5);
+    margin: 0 8px;
+  }
+
+  @keyframes ticker {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  /* Face detection indicator */
+  #faceStatus {
+    position: absolute;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.55);
+    border: 1px solid rgba(255,215,0,0.4);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 11px;
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.7);
+    z-index: 5;
+    pointer-events: none;
+    transition: opacity 0.5s;
+  }
+
+  #faceStatus.detected {
+    border-color: #00ff88;
+    color: #00ff88;
+  }
+
+  /* ── BOTTOM CONTROLS ── */
+  #controls {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    z-index: 6;
+    background: linear-gradient(0deg, rgba(10,0,0,0.95) 60%, transparent 100%);
+    padding: 12px 20px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .ctrl-btn {
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    font-family: 'Oswald', sans-serif;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.15);
+    min-width: 60px;
+  }
+
+  .ctrl-btn:active { transform: scale(0.92); }
+
+  .ctrl-btn .icon { font-size: 20px; }
+
+  /* Main capture button */
+  #captureBtn {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    border: 3px solid var(--tvk-gold);
+    background: radial-gradient(circle at 40% 35%, #ff3333, var(--tvk-red));
+    box-shadow: 0 0 20px rgba(204,0,0,0.6), 0 0 40px rgba(204,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.3);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  #captureBtn::after {
+    content: '';
+    position: absolute;
+    inset: 5px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.3);
+  }
+
+  #captureBtn:active {
+    transform: scale(0.88);
+    box-shadow: 0 0 10px rgba(204,0,0,0.4);
+  }
+
+  /* Slogan switcher overlay */
+  #sloganOverlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    z-index: 4;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+
+  #sloganOverlay.show {
+    opacity: 1;
+    animation: sloganPop 2.5s ease forwards;
+  }
+
+  @keyframes sloganPop {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+    15%  { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+    75%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+  }
+
+  .slogan-big {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(28px, 7vw, 56px);
+    letter-spacing: 4px;
+    color: var(--tvk-gold);
+    text-shadow: 0 0 30px rgba(255,215,0,0.8), 3px 3px 0 rgba(180,0,0,0.8), 6px 6px 0 rgba(0,0,0,0.5);
+    line-height: 1.1;
+    padding: 0 20px;
+  }
+
+  .slogan-tamil {
+    font-family: 'Tiro Tamil', serif;
+    font-size: clamp(14px, 3.5vw, 22px);
+    color: rgba(255,255,255,0.9);
+    text-shadow: 1px 1px 4px #000, 0 0 12px rgba(255,215,0,0.4);
+    margin-top: 4px;
+  }
+
+  /* Flash effect on capture */
+  #flash {
+    position: absolute;
+    inset: 0;
+    background: white;
+    z-index: 10;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.05s;
+  }
+  #flash.active { opacity: 0.85; }
+
+  /* Scan line effect */
+  #scanLines {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  /* Model placement indicator */
+  #placementHint {
+    position: absolute;
+    bottom: 140px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,215,0,0.3);
+    border-radius: 12px;
+    padding: 6px 16px;
+    font-size: 11px;
+    color: rgba(255,215,0,0.8);
+    letter-spacing: 1px;
+    z-index: 5;
+    pointer-events: none;
+    display: none;
+  }
+
+  /* Toast notification */
+  #toast {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.85);
+    border: 1px solid var(--tvk-gold);
+    border-radius: 12px;
+    padding: 14px 24px;
+    color: var(--tvk-gold);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 2px;
+    z-index: 20;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    white-space: nowrap;
+  }
+
+  #toast.show { opacity: 1; }
+
 </style>
 </head>
-
 <body>
 
-<video id="video" autoplay playsinline></video>
+<!-- Camera feed -->
+<video id="video" autoplay playsinline muted></video>
 
-<!-- A-Frame Scene -->
-<a-scene embedded>
-  <a-entity camera position="0 0 0"></a-entity>
+<!-- Scan lines -->
+<div id="scanLines"></div>
 
-  <a-entity 
+<!-- A-Frame 3D scene (transparent) -->
+<div id="scene-container">
+<a-scene
+  embedded
+  vr-mode-ui="enabled: false"
+  renderer="alpha: true; antialias: true; colorManagement: true"
+  background="transparent: true">
+
+  <a-assets>
+    <a-asset-item id="vijayAsset" src="tvk_thalapathi_vijay.glb"></a-asset-item>
+  </a-assets>
+
+  <!-- Lighting -->
+  <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
+  <a-light type="directional" color="#FFE0A0" intensity="1.2" position="2 4 3"></a-light>
+  <a-light type="point" color="#CC0000" intensity="0.5" position="-1 2 -2"></a-light>
+
+  <a-entity camera look-controls="enabled: false" position="0 0 0"></a-entity>
+
+  <!-- Vijay Model -->
+  <a-entity
     id="vijayModel"
-    gltf-model="tvk_thalapathi_vijay.glb"
-    scale="0.5 0.5 0.5"
-    position="0 0 -2">
+    gltf-model="#vijayAsset"
+    scale="1.1 1.1 1.1"
+    position="0.9 -0.8 -3"
+    rotation="0 -20 0"
+    animation__bob="property: position; from: 0.9 -0.8 -3; to: 0.9 -0.7 -3; dur: 2200; dir: alternate; loop: true; easing: easeInOutSine">
   </a-entity>
+
+  <!-- Ground shadow plane (optional glow) -->
+  <a-plane
+    id="shadowPlane"
+    position="0.9 -1.6 -3"
+    rotation="-90 0 0"
+    width="1.2" height="0.6"
+    color="#CC0000"
+    opacity="0.18"
+    shader="flat">
+  </a-plane>
+
 </a-scene>
+</div>
 
-<button onclick="capture()">📸 Capture</button>
+<!-- AR Overlay Canvas (face bbox, party frame) -->
+<canvas id="overlay"></canvas>
 
-<canvas id="canvas" style="display:none;"></canvas>
+<!-- TVK HUD -->
+<div id="hud">
+  <!-- Top Bar -->
+  <div class="hud-top">
+    <div class="tvk-logo-text">TVK <span>✦</span> Campaign</div>
+    <div class="hud-top-right">
+      <span class="tagline">தமிழக வெற்றிக் கழகம்</span>
+      <span class="tagline" style="font-family:'Oswald';font-size:10px;opacity:0.7;letter-spacing:1px;">TAMILAGA VETTRI KAZHAGAM</span>
+    </div>
+  </div>
+
+  <!-- Corner brackets -->
+  <div class="corner corner-tl"></div>
+  <div class="corner corner-tr"></div>
+  <div class="corner corner-bl"></div>
+  <div class="corner corner-br"></div>
+
+  <!-- Slogan ticker -->
+  <div class="hud-slogan">
+    <div class="slogan-track" id="sloganTrack">
+      <!-- JS fills this -->
+    </div>
+  </div>
+</div>
+
+<!-- Face status -->
+<div id="faceStatus">LOOKING FOR FACE…</div>
+
+<!-- Slogan popup overlay -->
+<div id="sloganOverlay">
+  <div class="slogan-big" id="sloganBig">MAKKAL MUDHAL</div>
+  <div class="slogan-tamil" id="sloganTamil">மக்களே முதல்</div>
+</div>
+
+<!-- Placement hint -->
+<div id="placementHint">✦ FACE DETECTED – VIJAY PLACED BESIDE YOU</div>
+
+<!-- Flash -->
+<div id="flash"></div>
+
+<!-- Toast -->
+<div id="toast" id="toast">PHOTO SAVED!</div>
+
+<!-- Controls -->
+<div id="controls">
+  <!-- Slogan toggle -->
+  <button class="ctrl-btn" onclick="cycleSloganOverlay()">
+    <span class="icon">🔊</span>
+    <span>SLOGAN</span>
+  </button>
+
+  <!-- Capture -->
+  <button id="captureBtn" onclick="capturePhoto()" title="Capture"></button>
+
+  <!-- Share -->
+  <button class="ctrl-btn" id="shareBtn" onclick="sharePhoto()">
+    <span class="icon">📤</span>
+    <span>SHARE</span>
+  </button>
+</div>
+
+<!-- Hidden capture canvas -->
+<canvas id="captureCanvas"></canvas>
 
 <script>
-const video = document.getElementById("video");
-const model = document.getElementById("vijayModel");
+// ═══════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════
+const SLOGANS = [
+  { en: "MAKKAL MUDHAL",     ta: "மக்களே முதல்" },
+  { en: "VIJAY LEADING US",  ta: "விஜய் நம் வழிகாட்டி" },
+  { en: "NAMMA THALAPATHI",  ta: "நம்ம தலபதி" },
+  { en: "TVK – THE PEOPLE",  ta: "TVK – மக்கள் கட்சி" },
+  { en: "NEW DAWN BEGINS",   ta: "புதிய விடியல்" },
+  { en: "TRUTH & VICTORY",   ta: "உண்மை • வெற்றி" },
+];
 
+const TICKER_SLOGANS = [
+  "✦ MAKKAL MUDHAL ✦",
+  "நம்ம தலபதி",
+  "✦ TAMILAGA VETTRI KAZHAGAM ✦",
+  "புதிய விடியல்",
+  "✦ TVK WITH THE PEOPLE ✦",
+  "விஜய் நம் வழிகாட்டி",
+  "✦ TRUTH & VICTORY ✦",
+  "TVK – மக்கள் கட்சி",
+];
+
+let currentSloganIdx = 0;
+let lastPhotoBlob = null;
+
+// ═══════════════════════════════════════════════
+// BUILD TICKER
+// ═══════════════════════════════════════════════
+(function buildTicker() {
+  const track = document.getElementById('sloganTrack');
+  // duplicate for seamless loop
+  const full = [...TICKER_SLOGANS, ...TICKER_SLOGANS];
+  track.innerHTML = full.map(s =>
+    `<span class="slogan-item">${s}<span class="sep">|</span></span>`
+  ).join('');
+})();
+
+// ═══════════════════════════════════════════════
 // CAMERA
-navigator.mediaDevices.getUserMedia({ video: true })
-.then(stream => video.srcObject = stream);
+// ═══════════════════════════════════════════════
+const video = document.getElementById('video');
+const overlay = document.getElementById('overlay');
+const ctx = overlay.getContext('2d');
 
+function resizeOverlay() {
+  overlay.width  = window.innerWidth;
+  overlay.height = window.innerHeight;
+}
+resizeOverlay();
+window.addEventListener('resize', resizeOverlay);
+
+navigator.mediaDevices.getUserMedia({
+  video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
+}).then(stream => {
+  video.srcObject = stream;
+}).catch(err => {
+  console.warn('Camera error:', err);
+  showToast('CAMERA PERMISSION NEEDED');
+});
+
+// ═══════════════════════════════════════════════
+// A-FRAME MODEL REFERENCE
+// ═══════════════════════════════════════════════
+const vijayModel = document.getElementById('vijayModel');
+const shadowPlane = document.getElementById('shadowPlane');
+const faceStatus  = document.getElementById('faceStatus');
+const placementHint = document.getElementById('placementHint');
+
+let faceDetected = false;
+let faceBox = null;
+
+// ═══════════════════════════════════════════════
 // FACE DETECTION
+// ═══════════════════════════════════════════════
 const faceDetection = new FaceDetection({
-  locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
+  locateFile: file =>
+    `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
 });
 
 faceDetection.setOptions({
-  model: "short",
-  minDetectionConfidence: 0.6
+  model: 'short',
+  minDetectionConfidence: 0.55
 });
 
-// UPDATE MODEL POSITION
 faceDetection.onResults(results => {
-  if (results.detections.length > 0) {
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
 
-    const face = results.detections[0].boundingBox;
+  if (results.detections && results.detections.length > 0) {
+    const det  = results.detections[0];
+    const box  = det.boundingBox;
+    faceBox = box;
+    faceDetected = true;
 
-    // Convert face position to 3D offset
-    let x = (face.xCenter - 0.5) * 2;
-    let y = (0.5 - face.yCenter) * 2;
+    faceStatus.textContent = '✦ FACE DETECTED – READY';
+    faceStatus.classList.add('detected');
+    placementHint.style.display = 'block';
 
-    // Place model beside user
-    model.object3D.position.set(x + 1.2, y - 1, -3);
+    // ── Draw face frame on overlay ──
+    const W = overlay.width, H = overlay.height;
+    // NOTE: video is CSS-mirrored; compensate for bounding box
+    const bx = (1 - box.xCenter - box.width / 2) * W;
+    const by = (box.yCenter - box.height / 2) * H;
+    const bw = box.width  * W;
+    const bh = box.height * H;
+
+    // Glow border
+    ctx.shadowBlur   = 16;
+    ctx.shadowColor  = '#CC0000';
+    ctx.strokeStyle  = '#FFD700';
+    ctx.lineWidth    = 2.5;
+    ctx.strokeRect(bx - 10, by - 10, bw + 20, bh + 20);
+
+    // Corner accents
+    ctx.shadowBlur = 0;
+    drawCornerAccents(ctx, bx - 10, by - 10, bw + 20, bh + 20, 18, '#FFD700');
+
+    // "TVK" label above face
+    ctx.fillStyle    = 'rgba(180,0,0,0.82)';
+    const labelW = 60, labelH = 20;
+    ctx.fillRect(bx - 10 + (bw + 20) / 2 - labelW / 2, by - 34, labelW, labelH);
+    ctx.fillStyle    = '#FFD700';
+    ctx.font         = 'bold 11px "Oswald", sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.fillText('✦ TVK ✦', bx - 10 + (bw + 20) / 2, by - 20);
+    ctx.textAlign    = 'left';
+
+    // ── Position Vijay model beside face ──
+    // Map face center to 3D position
+    const normX = box.xCenter;  // 0-1, left to right (mirrored)
+    const normY = box.yCenter;  // 0-1, top to bottom
+
+    // 3D: X goes -1.5 to +1.5, Y goes 0.8 to -0.8
+    let modelX = (0.5 - normX) * 3 + 1.0;  // offset to the side
+    let modelY = (0.5 - normY) * 1.5 - 0.5;
+    let modelZ = -3.0;
+
+    // Smooth interpolation
+    const cur = vijayModel.object3D.position;
+    vijayModel.object3D.position.set(
+      cur.x + (modelX - cur.x) * 0.12,
+      cur.y + (modelY - cur.y) * 0.12,
+      modelZ
+    );
+    shadowPlane.object3D.position.set(
+      vijayModel.object3D.position.x,
+      vijayModel.object3D.position.y - 1.0,
+      modelZ
+    );
+
+  } else {
+    faceDetected = false;
+    faceBox = null;
+    faceStatus.textContent = 'LOOKING FOR FACE…';
+    faceStatus.classList.remove('detected');
+    placementHint.style.display = 'none';
   }
 });
 
-const camera = new Camera(video, {
+function drawCornerAccents(ctx, x, y, w, h, len, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = 3;
+  const corners = [
+    [x, y, x + len, y, x, y + len],
+    [x + w, y, x + w - len, y, x + w, y + len],
+    [x, y + h, x + len, y + h, x, y + h - len],
+    [x + w, y + h, x + w - len, y + h, x + w, y + h - len],
+  ];
+  corners.forEach(([x1, y1, x2, y2, x3, y3]) => {
+    ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x1, y1); ctx.lineTo(x3, y3); ctx.stroke();
+  });
+}
+
+// ═══════════════════════════════════════════════
+// MEDIAPIPE CAMERA LOOP
+// ═══════════════════════════════════════════════
+const mpCamera = new Camera(video, {
   onFrame: async () => {
     await faceDetection.send({ image: video });
   },
   width: 640,
   height: 480
 });
+mpCamera.start();
 
-camera.start();
+// ═══════════════════════════════════════════════
+// SLOGAN OVERLAY CYCLE
+// ═══════════════════════════════════════════════
+function cycleSloganOverlay() {
+  currentSloganIdx = (currentSloganIdx + 1) % SLOGANS.length;
+  const s = SLOGANS[currentSloganIdx];
+  const overlay_el = document.getElementById('sloganOverlay');
+  document.getElementById('sloganBig').textContent   = s.en;
+  document.getElementById('sloganTamil').textContent = s.ta;
+  overlay_el.classList.remove('show');
+  void overlay_el.offsetWidth; // reflow
+  overlay_el.classList.add('show');
+  setTimeout(() => overlay_el.classList.remove('show'), 2600);
+}
 
-// CAPTURE FUNCTION
-function capture() {
-  const canvas = document.getElementById("canvas");
-  const ctx = canvas.getContext("2d");
+// ═══════════════════════════════════════════════
+// CAPTURE PHOTO
+// ═══════════════════════════════════════════════
+async function capturePhoto() {
+  // Flash
+  const flash = document.getElementById('flash');
+  flash.classList.add('active');
+  setTimeout(() => flash.classList.remove('active'), 150);
 
-  canvas.width = window.innerWidth;
+  // Wait a frame
+  await new Promise(r => setTimeout(r, 60));
+
+  const canvas = document.getElementById('captureCanvas');
+  const cctx   = canvas.getContext('2d');
+  canvas.width  = window.innerWidth;
   canvas.height = window.innerHeight;
 
-  // Draw camera
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  // 1. Camera feed (mirrored to match display)
+  cctx.save();
+  cctx.translate(canvas.width, 0);
+  cctx.scale(-1, 1);
+  cctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  cctx.restore();
 
-  // Draw 3D scene
-  const scene = document.querySelector("a-scene canvas");
-  if (scene) {
-    ctx.drawImage(scene, 0, 0, canvas.width, canvas.height);
+  // 2. A-Frame 3D scene
+  const aScene = document.querySelector('a-scene canvas');
+  if (aScene) {
+    try { cctx.drawImage(aScene, 0, 0, canvas.width, canvas.height); } catch(e) {}
   }
 
-  const link = document.createElement("a");
-  link.download = "vijay-ar.png";
-  link.href = canvas.toDataURL();
-  link.click();
-}
-</script>
+  // 3. AR overlay (face frame)
+  cctx.drawImage(overlay, 0, 0);
 
+  // 4. TVK branding watermark bottom
+  drawWatermark(cctx, canvas.width, canvas.height);
+
+  // Save
+  canvas.toBlob(blob => {
+    lastPhotoBlob = blob;
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `TVK_Campaign_${Date.now()}.png`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast('📸 PHOTO SAVED!');
+  }, 'image/png');
+}
+
+function drawWatermark(c, W, H) {
+  // Bottom gradient
+  const grad = c.createLinearGradient(0, H - 80, 0, H);
+  grad.addColorStop(0, 'transparent');
+  grad.addColorStop(1, 'rgba(130,0,0,0.75)');
+  c.fillStyle = grad;
+  c.fillRect(0, H - 80, W, 80);
+
+  // Watermark text
+  c.font      = 'bold 16px "Bebas Neue", sans-serif';
+  c.fillStyle = 'rgba(255,215,0,0.9)';
+  c.textAlign = 'center';
+  c.fillText('✦ தமிழக வெற்றிக் கழகம் – TAMILAGA VETTRI KAZHAGAM ✦', W / 2, H - 18);
+  c.textAlign = 'left';
+}
+
+// ═══════════════════════════════════════════════
+// SHARE
+// ═══════════════════════════════════════════════
+async function sharePhoto() {
+  if (!lastPhotoBlob) {
+    showToast('CAPTURE A PHOTO FIRST!');
+    return;
+  }
+  const file = new File([lastPhotoBlob], 'TVK_Campaign.png', { type: 'image/png' });
+  if (navigator.share && navigator.canShare({ files: [file] })) {
+    await navigator.share({
+      title : 'TVK Campaign – Thalapathi Vijay',
+      text  : '✦ நம்ம தலபதி – Tamilaga Vettri Kazhagam ✦',
+      files : [file]
+    });
+  } else {
+    showToast('SHARE NOT SUPPORTED – PHOTO SAVED!');
+  }
+}
+
+// ═══════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ═══════════════════════════════════════════════
+// MODEL LOAD FEEDBACK
+// ═══════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('vijayModel');
+  el.addEventListener('model-loaded', () => {
+    showToast('✦ THALAPATHI READY ✦');
+  });
+  el.addEventListener('model-error', () => {
+    showToast('⚠ MODEL FILE MISSING');
+    console.warn('Place tvk_thalapathi_vijay.glb in the same folder.');
+  });
+});
+</script>
 </body>
 </html>
