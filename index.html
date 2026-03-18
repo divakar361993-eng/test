@@ -7,6 +7,9 @@
 <!-- A-Frame -->
 <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
 
+<!-- AR.js -->
+<script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
 <!-- MediaPipe -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
@@ -24,7 +27,7 @@ video, #ar-section {
 #overlay {
   position:absolute;
   width:160px;
-  filter: drop-shadow(0px 15px 20px rgba(0,0,0,0.4));
+  pointer-events:none;
 }
 
 .controls {
@@ -33,27 +36,27 @@ video, #ar-section {
   width:100%;
   display:flex;
   justify-content:center;
-  gap:10px;
 }
 
 button {
-  padding:10px;
+  padding:12px;
   border:none;
-  border-radius:8px;
+  border-radius:10px;
   background:#ffcc00;
+  font-weight:bold;
 }
 
 #modeSwitch {
   position:absolute;
   top:10px;
   left:10px;
+  z-index:10;
 }
 </style>
 </head>
 
 <body>
 
-<!-- MODE SWITCH -->
 <button id="modeSwitch" onclick="switchMode()">Switch Mode</button>
 
 <!-- SELFIE MODE -->
@@ -62,18 +65,20 @@ button {
 
 <!-- AR MODE -->
 <div id="ar-section" style="display:none;">
-  <a-scene embedded webxr="requiredFeatures: hit-test">
-    <a-camera></a-camera>
+  <a-scene embedded arjs>
+    
+    <a-marker preset="hiro">
+      <a-entity 
+        gltf-model="tvk_thalapathi_vijay.glb"
+        scale="0.4 0.4 0.4"
+        position="0 0 0">
+      </a-entity>
+    </a-marker>
 
-    <a-entity id="model"
-      gltf-model="tvk_thalapathi_vijay.glb"
-      visible="false"
-      scale="0.3 0.3 0.3">
-    </a-entity>
+    <a-entity camera></a-entity>
   </a-scene>
 </div>
 
-<!-- CONTROLS -->
 <div class="controls">
   <button onclick="capture()">📸 Capture</button>
 </div>
@@ -82,16 +87,14 @@ button {
 
 <script>
 let mode = "selfie";
-let video = document.getElementById('video');
-let overlay = document.getElementById('overlay');
+const video = document.getElementById('video');
+const overlay = document.getElementById('overlay');
 
-// CAMERA START
+// CAMERA
 navigator.mediaDevices.getUserMedia({ video: true })
 .then(stream => video.srcObject = stream);
 
-// =======================
-// FACE DETECTION
-// =======================
+// ================= FACE DETECTION =================
 const faceDetection = new FaceDetection({
   locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
 });
@@ -110,8 +113,8 @@ faceDetection.onResults(results => {
     const x = face.xCenter * window.innerWidth;
     const y = face.yCenter * window.innerHeight;
 
-    overlay.style.left = (x + 80) + "px";
-    overlay.style.top = (y - 60) + "px";
+    overlay.style.left = (x + 60) + "px";
+    overlay.style.top = (y - 80) + "px";
   }
 });
 
@@ -125,37 +128,22 @@ const camera = new Camera(video, {
 
 camera.start();
 
-// =======================
-// MODE SWITCH
-// =======================
+// ================= MODE SWITCH =================
 function switchMode() {
   mode = (mode === "selfie") ? "ar" : "selfie";
 
-  document.getElementById('video').style.display = (mode==="selfie")?"block":"none";
-  document.getElementById('overlay').style.display = (mode==="selfie")?"block":"none";
+  video.style.display = (mode==="selfie")?"block":"none";
+  overlay.style.display = (mode==="selfie")?"block":"none";
   document.getElementById('ar-section').style.display = (mode==="ar")?"block":"none";
 }
 
-// =======================
-// AR TAP TO PLACE
-// =======================
-document.body.addEventListener("click", () => {
-  if (mode !== "ar") return;
-
-  const model = document.getElementById("model");
-  model.setAttribute("visible", true);
-  model.setAttribute("position", "0 0 -1");
-});
-
-// =======================
-// CAPTURE
-// =======================
+// ================= CAPTURE =================
 function capture() {
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
 
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
 
   if (mode === "selfie") {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -164,22 +152,18 @@ function capture() {
     ctx.drawImage(overlay, rect.left, rect.top, rect.width, rect.height);
   }
 
-  // Download + Share
-  canvas.toBlob(blob => {
-    const file = new File([blob], "vijay.png", { type: "image/png" });
-
-    if (navigator.share) {
-      navigator.share({
-        title: "I Support Vijay 🔥",
-        files: [file]
-      });
-    } else {
-      const link = document.createElement('a');
-      link.download = "vijay.png";
-      link.href = canvas.toDataURL();
-      link.click();
+  if (mode === "ar") {
+    const scene = document.querySelector("a-scene canvas");
+    if (scene) {
+      ctx.drawImage(scene, 0, 0, canvas.width, canvas.height);
     }
-  });
+  }
+
+  // DOWNLOAD
+  const link = document.createElement('a');
+  link.download = "vijay.png";
+  link.href = canvas.toDataURL();
+  link.click();
 }
 </script>
 
