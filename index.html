@@ -1,118 +1,155 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Vijay AR Selfie</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vijay AR Campaign</title>
 
-  <style>
-    body { margin:0; overflow:hidden; font-family:sans-serif; }
+<!-- A-Frame -->
+<script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
 
-    video {
-      position:absolute;
-      width:100%;
-      height:100%;
-      object-fit:cover;
-    }
+<!-- MediaPipe -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
 
-    #overlay {
-      position:absolute;
-      width:200px;
-      left:50%;
-      bottom:50px;
-      transform:translateX(-50%);
-      touch-action:none;
-    }
+<style>
+body { margin:0; overflow:hidden; font-family:sans-serif; }
 
-    .controls {
-      position:absolute;
-      bottom:10px;
-      width:100%;
-      display:flex;
-      justify-content:center;
-      gap:10px;
-    }
+video, #ar-section {
+  position:absolute;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
 
-    button {
-      padding:10px;
-      font-size:14px;
-      border:none;
-      border-radius:8px;
-      background:#ffcc00;
-    }
+#overlay {
+  position:absolute;
+  width:160px;
+  filter: drop-shadow(0px 15px 20px rgba(0,0,0,0.4));
+}
 
-    input[type=range] {
-      width:120px;
-    }
-  </style>
+.controls {
+  position:absolute;
+  bottom:10px;
+  width:100%;
+  display:flex;
+  justify-content:center;
+  gap:10px;
+}
+
+button {
+  padding:10px;
+  border:none;
+  border-radius:8px;
+  background:#ffcc00;
+}
+
+#modeSwitch {
+  position:absolute;
+  top:10px;
+  left:10px;
+}
+</style>
 </head>
 
 <body>
 
-<video id="camera" autoplay playsinline></video>
+<!-- MODE SWITCH -->
+<button id="modeSwitch" onclick="switchMode()">Switch Mode</button>
 
+<!-- SELFIE MODE -->
+<video id="video" autoplay playsinline></video>
 <img id="overlay" src="vijay.png">
 
+<!-- AR MODE -->
+<div id="ar-section" style="display:none;">
+  <a-scene embedded webxr="requiredFeatures: hit-test">
+    <a-camera></a-camera>
+
+    <a-entity id="model"
+      gltf-model="tvk_thalapathi_vijay.glb"
+      visible="false"
+      scale="0.3 0.3 0.3">
+    </a-entity>
+  </a-scene>
+</div>
+
+<!-- CONTROLS -->
 <div class="controls">
-  <button onclick="switchCamera()">🔄 Camera</button>
-  <input type="range" min="100" max="400" value="200" id="sizeSlider">
   <button onclick="capture()">📸 Capture</button>
 </div>
 
 <canvas id="canvas" style="display:none;"></canvas>
 
 <script>
-let video = document.getElementById('camera');
-let currentStream;
-let useFront = true;
+let mode = "selfie";
+let video = document.getElementById('video');
+let overlay = document.getElementById('overlay');
 
-// 📷 Start Camera
-function startCamera() {
-  if (currentStream) {
-    currentStream.getTracks().forEach(track => track.stop());
+// CAMERA START
+navigator.mediaDevices.getUserMedia({ video: true })
+.then(stream => video.srcObject = stream);
+
+// =======================
+// FACE DETECTION
+// =======================
+const faceDetection = new FaceDetection({
+  locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
+});
+
+faceDetection.setOptions({
+  model: 'short',
+  minDetectionConfidence: 0.6
+});
+
+faceDetection.onResults(results => {
+  if (mode !== "selfie") return;
+
+  if (results.detections.length > 0) {
+    const face = results.detections[0].boundingBox;
+
+    const x = face.xCenter * window.innerWidth;
+    const y = face.yCenter * window.innerHeight;
+
+    overlay.style.left = (x + 80) + "px";
+    overlay.style.top = (y - 60) + "px";
   }
-
-  navigator.mediaDevices.getUserMedia({
-    video: { facingMode: useFront ? "user" : "environment" }
-  }).then(stream => {
-    currentStream = stream;
-    video.srcObject = stream;
-  });
-}
-
-startCamera();
-
-// 🔄 Switch Camera
-function switchCamera() {
-  useFront = !useFront;
-  startCamera();
-}
-
-// 📏 Resize Overlay
-const slider = document.getElementById('sizeSlider');
-const overlay = document.getElementById('overlay');
-
-slider.oninput = () => {
-  overlay.style.width = slider.value + "px";
-};
-
-// 🖐️ Drag Feature
-let isDragging = false, offsetX, offsetY;
-
-overlay.addEventListener('touchstart', e => {
-  isDragging = true;
-  offsetX = e.touches[0].clientX - overlay.offsetLeft;
-  offsetY = e.touches[0].clientY - overlay.offsetTop;
 });
 
-overlay.addEventListener('touchmove', e => {
-  if (!isDragging) return;
-  overlay.style.left = (e.touches[0].clientX - offsetX) + "px";
-  overlay.style.top = (e.touches[0].clientY - offsetY) + "px";
+const camera = new Camera(video, {
+  onFrame: async () => {
+    await faceDetection.send({ image: video });
+  },
+  width: 640,
+  height: 480
 });
 
-overlay.addEventListener('touchend', () => isDragging = false);
+camera.start();
 
-// 📸 Capture Image
+// =======================
+// MODE SWITCH
+// =======================
+function switchMode() {
+  mode = (mode === "selfie") ? "ar" : "selfie";
+
+  document.getElementById('video').style.display = (mode==="selfie")?"block":"none";
+  document.getElementById('overlay').style.display = (mode==="selfie")?"block":"none";
+  document.getElementById('ar-section').style.display = (mode==="ar")?"block":"none";
+}
+
+// =======================
+// AR TAP TO PLACE
+// =======================
+document.body.addEventListener("click", () => {
+  if (mode !== "ar") return;
+
+  const model = document.getElementById("model");
+  model.setAttribute("visible", true);
+  model.setAttribute("position", "0 0 -1");
+});
+
+// =======================
+// CAPTURE
+// =======================
 function capture() {
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
@@ -120,23 +157,29 @@ function capture() {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
 
-  // Draw video
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  if (mode === "selfie") {
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  // Draw overlay
-  const rect = overlay.getBoundingClientRect();
-  const videoRect = video.getBoundingClientRect();
+    const rect = overlay.getBoundingClientRect();
+    ctx.drawImage(overlay, rect.left, rect.top, rect.width, rect.height);
+  }
 
-  const x = rect.left - videoRect.left;
-  const y = rect.top - videoRect.top;
+  // Download + Share
+  canvas.toBlob(blob => {
+    const file = new File([blob], "vijay.png", { type: "image/png" });
 
-  ctx.drawImage(overlay, x, y, rect.width, rect.height);
-
-  // Download
-  const link = document.createElement('a');
-  link.download = "image.png";
-  link.href = canvas.toDataURL();
-  link.click();
+    if (navigator.share) {
+      navigator.share({
+        title: "I Support Vijay 🔥",
+        files: [file]
+      });
+    } else {
+      const link = document.createElement('a');
+      link.download = "vijay.png";
+      link.href = canvas.toDataURL();
+      link.click();
+    }
+  });
 }
 </script>
 
