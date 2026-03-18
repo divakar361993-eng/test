@@ -5,6 +5,7 @@
 <meta charset="UTF-8">
 <title>TVK AR Campaign – Thalapathi Vijay</title>
 <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Tiro+Tamil:ital@0;1&family=Oswald:wght@400;700&display=swap" rel="stylesheet">
@@ -376,38 +377,41 @@
 <a-scene
   embedded
   vr-mode-ui="enabled: false"
-  renderer="alpha: true; antialias: true; colorManagement: true"
-  background="transparent: true">
+  renderer="alpha: true; antialias: true; colorManagement: true; logarithmicDepthBuffer: true"
+  background="color: transparent"
+  style="background:transparent">
 
-  <a-assets>
-    <a-asset-item id="vijayAsset" src="tvk_thalapathi_vijay.glb"></a-asset-item>
+  <a-assets timeout="30000">
+    <a-asset-item id="vijayAsset" src="tvk_thalapathi_vijay.glb" response-type="arraybuffer"></a-asset-item>
   </a-assets>
 
   <!-- Lighting -->
-  <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
-  <a-light type="directional" color="#FFE0A0" intensity="1.2" position="2 4 3"></a-light>
-  <a-light type="point" color="#CC0000" intensity="0.5" position="-1 2 -2"></a-light>
+  <a-light type="ambient" color="#ffffff" intensity="0.7"></a-light>
+  <a-light type="directional" color="#FFE0A0" intensity="1.4" position="2 4 3"></a-light>
+  <a-light type="point" color="#CC0000" intensity="0.6" position="-1 2 -2"></a-light>
+  <a-light type="point" color="#ffffff" intensity="0.4" position="0 3 -2"></a-light>
 
-  <a-entity camera look-controls="enabled: false" position="0 0 0"></a-entity>
+  <a-entity camera look-controls="enabled: false" wasd-controls="enabled: false" position="0 0 0"></a-entity>
 
   <!-- Vijay Model -->
   <a-entity
     id="vijayModel"
-    gltf-model="#vijayAsset"
+    gltf-model="tvk_thalapathi_vijay.glb"
     scale="1.1 1.1 1.1"
     position="0.9 -0.8 -3"
     rotation="0 -20 0"
-    animation__bob="property: position; from: 0.9 -0.8 -3; to: 0.9 -0.7 -3; dur: 2200; dir: alternate; loop: true; easing: easeInOutSine">
+    animation-mixer
+    shadow="cast: true">
   </a-entity>
 
-  <!-- Ground shadow plane (optional glow) -->
+  <!-- Ground shadow plane -->
   <a-plane
     id="shadowPlane"
     position="0.9 -1.6 -3"
     rotation="-90 0 0"
     width="1.2" height="0.6"
     color="#CC0000"
-    opacity="0.18"
+    opacity="0.2"
     shader="flat">
   </a-plane>
 
@@ -464,18 +468,29 @@
 <div id="controls">
   <!-- Slogan toggle -->
   <button class="ctrl-btn" onclick="cycleSloganOverlay()">
-    <span class="icon">🔊</span>
+    <span class="icon">🎤</span>
     <span>SLOGAN</span>
   </button>
 
   <!-- Capture -->
   <button id="captureBtn" onclick="capturePhoto()" title="Capture"></button>
 
-  <!-- Share -->
-  <button class="ctrl-btn" id="shareBtn" onclick="sharePhoto()">
-    <span class="icon">📤</span>
-    <span>SHARE</span>
+  <!-- Audio toggle -->
+  <button class="ctrl-btn" id="audioBtn" onclick="toggleAudio()">
+    <span class="icon">🔊</span>
+    <span>AUDIO</span>
   </button>
+</div>
+
+<!-- Model debug panel -->
+<div id="modelDebug" style="
+  position:absolute; top:70px; left:50%; transform:translateX(-50%);
+  background:rgba(0,0,0,0.75); border:1px solid #CC0000; border-radius:8px;
+  padding:8px 14px; font-size:11px; color:#FFD700; z-index:10;
+  font-family:'Oswald',sans-serif; letter-spacing:1px; text-align:center;
+  pointer-events:none; display:none;" id="modelDebug">
+  LOADING MODEL…
+</div>
 </div>
 
 <!-- Hidden capture canvas -->
@@ -677,9 +692,11 @@ function cycleSloganOverlay() {
   document.getElementById('sloganBig').textContent   = s.en;
   document.getElementById('sloganTamil').textContent = s.ta;
   overlay_el.classList.remove('show');
-  void overlay_el.offsetWidth; // reflow
+  void overlay_el.offsetWidth;
   overlay_el.classList.add('show');
   setTimeout(() => overlay_el.classList.remove('show'), 2600);
+  // Speak the Tamil slogan
+  speakSlogan(s.ta);
 }
 
 // ═══════════════════════════════════════════════
@@ -778,18 +795,230 @@ function showToast(msg) {
 }
 
 // ═══════════════════════════════════════════════
-// MODEL LOAD FEEDBACK
+// AUDIO ENGINE (Web Audio API – no file needed)
 // ═══════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', () => {
+let audioCtx = null;
+let audioPlaying = false;
+let bgGainNode = null;
+let oscillators = [];
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+// Generate a dramatic TVK-style background music loop using Web Audio
+function startAudio() {
+  initAudio();
+  if (audioPlaying) return;
+  audioPlaying = true;
+
+  // Master gain
+  bgGainNode = audioCtx.createGain();
+  bgGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+  bgGainNode.gain.linearRampToValueAtTime(0.18, audioCtx.currentTime + 1.5);
+  bgGainNode.connect(audioCtx.destination);
+
+  // Reverb convolver
+  const convolver = audioCtx.createConvolver();
+  const reverbBuf = audioCtx.createBuffer(2, audioCtx.sampleRate * 2, audioCtx.sampleRate);
+  for (let c = 0; c < 2; c++) {
+    const d = reverbBuf.getChannelData(c);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
+  }
+  convolver.buffer = reverbBuf;
+  convolver.connect(bgGainNode);
+
+  // Pad chords - TVK red & powerful feel
+  // Notes: D minor pentatonic feel
+  const CHORD_NOTES = [
+    [146.83, 220.00, 261.63], // Dm
+    [130.81, 196.00, 261.63], // C
+    [110.00, 164.81, 220.00], // Am
+    [123.47, 185.00, 246.94], // Bm
+  ];
+
+  let chordIdx = 0;
+  let chordOscs = [];
+
+  function playChord() {
+    // Stop previous
+    chordOscs.forEach(o => { try { o.stop(); } catch(e){} });
+    chordOscs = [];
+
+    if (!audioPlaying) return;
+    const notes = CHORD_NOTES[chordIdx % CHORD_NOTES.length];
+    chordIdx++;
+
+    notes.forEach(freq => {
+      const osc = audioCtx.createOscillator();
+      const g   = audioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+      // Slight detune for richness
+      const osc2 = audioCtx.createOscillator();
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(freq * 1.003, audioCtx.currentTime);
+
+      // Low-pass filter
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(800, audioCtx.currentTime);
+      filter.Q.setValueAtTime(1.5, audioCtx.currentTime);
+
+      g.gain.setValueAtTime(0, audioCtx.currentTime);
+      g.gain.linearRampToValueAtTime(0.06, audioCtx.currentTime + 0.4);
+      g.gain.linearRampToValueAtTime(0.04, audioCtx.currentTime + 3.2);
+      g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 4.0);
+
+      osc.connect(filter); osc2.connect(filter);
+      filter.connect(g); g.connect(convolver); g.connect(bgGainNode);
+      osc.start(); osc2.start();
+      osc.stop(audioCtx.currentTime + 4.2);
+      osc2.stop(audioCtx.currentTime + 4.2);
+      chordOscs.push(osc, osc2);
+    });
+
+    if (audioPlaying) setTimeout(playChord, 3600);
+  }
+
+  // Bass pulse
+  function playBass() {
+    if (!audioPlaying) return;
+    const bass = audioCtx.createOscillator();
+    const bg2  = audioCtx.createGain();
+    bass.type = 'sine';
+    bass.frequency.setValueAtTime(73.4, audioCtx.currentTime); // D2
+    bass.frequency.setTargetAtTime(65.4, audioCtx.currentTime + 0.05, 0.1); // C2
+
+    bg2.gain.setValueAtTime(0, audioCtx.currentTime);
+    bg2.gain.linearRampToValueAtTime(0.35, audioCtx.currentTime + 0.02);
+    bg2.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.6);
+    bass.connect(bg2); bg2.connect(bgGainNode);
+    bass.start(); bass.stop(audioCtx.currentTime + 0.65);
+
+    if (audioPlaying) setTimeout(playBass, 750);
+  }
+
+  // Snare-like noise hit
+  function playSnare() {
+    if (!audioPlaying) return;
+    const buf  = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.15, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    const src  = audioCtx.createBufferSource();
+    src.buffer = buf;
+    const sg   = audioCtx.createGain();
+    const snareFilter = audioCtx.createBiquadFilter();
+    snareFilter.type = 'bandpass';
+    snareFilter.frequency.setValueAtTime(1800, audioCtx.currentTime);
+    sg.gain.setValueAtTime(0.12, audioCtx.currentTime);
+    sg.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+    src.connect(snareFilter); snareFilter.connect(sg); sg.connect(bgGainNode);
+    src.start();
+    if (audioPlaying) setTimeout(playSnare, 1500);
+  }
+
+  // Kick drum
+  function playKick() {
+    if (!audioPlaying) return;
+    const kick = audioCtx.createOscillator();
+    const kg   = audioCtx.createGain();
+    kick.frequency.setValueAtTime(160, audioCtx.currentTime);
+    kick.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.15);
+    kg.gain.setValueAtTime(0.5, audioCtx.currentTime);
+    kg.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+    kick.connect(kg); kg.connect(bgGainNode);
+    kick.start(); kick.stop(audioCtx.currentTime + 0.35);
+    if (audioPlaying) setTimeout(playKick, 750);
+  }
+
+  playChord();
+  setTimeout(playBass, 200);
+  setTimeout(playSnare, 750);
+  setTimeout(playKick, 0);
+
+  document.getElementById('audioBtn').querySelector('.icon').textContent = '🔇';
+  document.getElementById('audioBtn').querySelector('span:last-child').textContent = 'MUTE';
+  showToast('🎵 AUDIO ON');
+}
+
+function stopAudio() {
+  audioPlaying = false;
+  if (bgGainNode) {
+    bgGainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+  }
+  oscillators.forEach(o => { try { o.stop(); } catch(e){} });
+  oscillators = [];
+  document.getElementById('audioBtn').querySelector('.icon').textContent = '🔊';
+  document.getElementById('audioBtn').querySelector('span:last-child').textContent = 'AUDIO';
+  showToast('🔇 AUDIO OFF');
+}
+
+function toggleAudio() {
+  if (audioPlaying) { stopAudio(); } else { startAudio(); }
+}
+
+// Speak slogan using Web Speech API
+function speakSlogan(text) {
+  if (!window.speechSynthesis) return;
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = 'ta-IN';
+  utt.rate = 0.85;
+  utt.pitch = 1.1;
+  utt.volume = 1.0;
+  // Fallback to en if Tamil not available
+  const voices = window.speechSynthesis.getVoices();
+  const tamilVoice = voices.find(v => v.lang.startsWith('ta'));
+  if (tamilVoice) utt.voice = tamilVoice;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utt);
+}
+
+// ═══════════════════════════════════════════════
+// MODEL LOADING DEBUG + BOB ANIMATION
+// ═══════════════════════════════════════════════
+function initModelEvents() {
   const el = document.getElementById('vijayModel');
+  const dbg = document.getElementById('modelDebug');
+  dbg.style.display = 'block';
+  dbg.textContent = '⏳ LOADING tvk_thalapathi_vijay.glb…';
+
   el.addEventListener('model-loaded', () => {
+    dbg.textContent = '✅ MODEL LOADED';
+    setTimeout(() => dbg.style.display = 'none', 2500);
     showToast('✦ THALAPATHI READY ✦');
+    el.setAttribute('animation__bob', {
+      property: 'position',
+      from: { x: 0.9, y: -0.8, z: -3 },
+      to:   { x: 0.9, y: -0.65, z: -3 },
+      dur: 2200,
+      dir: 'alternate',
+      loop: true,
+      easing: 'easeInOutSine'
+    });
+    const mixer = el.components['animation-mixer'];
+    if (mixer) mixer.playAction('');
   });
-  el.addEventListener('model-error', () => {
-    showToast('⚠ MODEL FILE MISSING');
-    console.warn('Place tvk_thalapathi_vijay.glb in the same folder.');
+
+  el.addEventListener('model-error', (e) => {
+    console.error('Model load error:', e.detail);
+    dbg.style.color = '#ff4444';
+    dbg.innerHTML = '❌ GLB NOT FOUND<br><span style="font-size:9px;opacity:0.8">Place tvk_thalapathi_vijay.glb<br>in the SAME folder as this HTML</span>';
+    showToast('⚠ GLB FILE NOT FOUND');
+    // Red placeholder box
+    el.setAttribute('geometry', 'primitive: box; height: 1.8; width: 0.5; depth: 0.3');
+    el.setAttribute('material', 'color: #CC0000; opacity: 0.7; transparent: true');
   });
-});
-</script> 
+}
+
+document.addEventListener('DOMContentLoaded', initModelEvents);
+
+// Force audio context resume on first touch (iOS requirement)
+document.addEventListener('touchstart', () => {
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}, { once: false });
+</script>
 </body>
 </html>
