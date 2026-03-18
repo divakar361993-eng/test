@@ -382,7 +382,7 @@
   style="background:transparent">
 
   <a-assets timeout="30000">
-    <a-asset-item id="vijayAsset" src="tvk_thalapathi_vijay.glb" response-type="arraybuffer"></a-asset-item>
+    <!-- Removed asset item for direct loading -->
   </a-assets>
 
   <!-- Lighting -->
@@ -396,7 +396,7 @@
   <!-- Vijay Model -->
   <a-entity
     id="vijayModel"
-    gltf-model="#vijayAsset"
+    gltf-model="tvk_thalapathi_vijay.glb"
     scale="1.1 1.1 1.1"
     position="0.9 -0.8 -3"
     rotation="0 -20 0"
@@ -565,6 +565,20 @@ const vijayModel = document.getElementById('vijayModel');
 const shadowPlane = document.getElementById('shadowPlane');
 const faceStatus  = document.getElementById('faceStatus');
 const placementHint = document.getElementById('placementHint');
+
+// Model loading events
+vijayModel.addEventListener('model-loaded', () => {
+  console.log('Vijay model loaded successfully');
+  faceStatus.textContent = 'MODEL LOADED – LOOKING FOR FACE…';
+});
+
+vijayModel.addEventListener('model-error', (event) => {
+  console.error('Model failed to load:', event.detail);
+  faceStatus.textContent = 'MODEL LOAD ERROR – CHECK CONSOLE';
+  // Fallback: hide the model
+  vijayModel.setAttribute('visible', false);
+  shadowPlane.setAttribute('visible', false);
+});
 
 let faceDetected = false;
 let faceBox = null;
