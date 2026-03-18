@@ -4,426 +4,241 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta charset="UTF-8">
 <title>TVK AR Campaign – Thalapathi Vijay</title>
-<script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Tiro+Tamil:ital@0;1&family=Oswald:wght@400;700&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
   :root {
     --tvk-red: #CC0000;
-    --tvk-dark: #1a0000;
     --tvk-gold: #FFD700;
-    --tvk-white: #FFFFFF;
-    --tvk-black: #0a0a0a;
   }
-
   body {
     background: #000;
     overflow: hidden;
     font-family: 'Oswald', sans-serif;
-    width: 100vw;
-    height: 100vh;
+    width: 100vw; height: 100vh;
     position: relative;
   }
 
-  /* ── CAMERA VIDEO ── */
   #video {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
     object-fit: cover;
-    transform: scaleX(-1); /* mirror selfie */
+    transform: scaleX(-1);
     z-index: 1;
+    display: none;
   }
 
-  /* ── A-FRAME SCENE ── */
-  #scene-container {
-    position: absolute;
-    inset: 0;
+  #arCanvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
     z-index: 2;
     pointer-events: none;
   }
 
-  a-scene {
-    position: absolute !important;
-    inset: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    background: transparent !important;
+  #scanLines {
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px);
+    z-index: 3; pointer-events: none;
   }
 
-  /* ── AR OVERLAY CANVAS ── */
-  #overlay {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 3;
-    pointer-events: none;
-  }
+  #hud { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
 
-  /* ── CAPTURE CANVAS (hidden) ── */
-  #captureCanvas { display: none; }
-
-  /* ── TVK HUD FRAME ── */
-  #hud {
-    position: absolute;
-    inset: 0;
-    z-index: 4;
-    pointer-events: none;
-  }
-
-  /* Top banner */
   .hud-top {
-    position: absolute;
-    top: 0; left: 0; right: 0;
+    position: absolute; top: 0; left: 0; right: 0;
     padding: 10px 16px 8px;
-    background: linear-gradient(180deg, rgba(180,0,0,0.92) 0%, rgba(180,0,0,0.0) 100%);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    background: linear-gradient(180deg, rgba(180,0,0,0.92) 0%, transparent 100%);
+    display: flex; align-items: center; justify-content: space-between;
   }
-
   .tvk-logo-text {
     font-family: 'Bebas Neue', sans-serif;
     font-size: clamp(22px, 5vw, 36px);
-    letter-spacing: 4px;
-    color: var(--tvk-gold);
+    letter-spacing: 4px; color: var(--tvk-gold);
     text-shadow: 0 0 20px rgba(255,215,0,0.6), 2px 2px 4px rgba(0,0,0,0.8);
   }
-
-  .tvk-logo-text span {
-    color: var(--tvk-white);
-  }
-
-  .hud-top-right {
-    text-align: right;
-  }
-
-  .hud-top-right .tagline {
+  .tvk-logo-text span { color: #fff; }
+  .hud-top-right { text-align: right; }
+  .tagline {
     font-family: 'Tiro Tamil', serif;
     font-size: clamp(10px, 2.5vw, 14px);
     color: rgba(255,255,255,0.92);
     text-shadow: 1px 1px 3px #000;
-    display: block;
-    line-height: 1.4;
+    display: block; line-height: 1.4;
   }
 
-  /* Corner decorations */
-  .corner {
-    position: absolute;
-    width: 40px;
-    height: 40px;
-    z-index: 4;
-    pointer-events: none;
-  }
+  .corner { position: absolute; width: 40px; height: 40px; z-index: 4; pointer-events: none; }
   .corner-tl { top: 64px; left: 12px; border-top: 3px solid var(--tvk-red); border-left: 3px solid var(--tvk-red); }
   .corner-tr { top: 64px; right: 12px; border-top: 3px solid var(--tvk-red); border-right: 3px solid var(--tvk-red); }
   .corner-bl { bottom: 100px; left: 12px; border-bottom: 3px solid var(--tvk-red); border-left: 3px solid var(--tvk-red); }
   .corner-br { bottom: 100px; right: 12px; border-bottom: 3px solid var(--tvk-red); border-right: 3px solid var(--tvk-red); }
 
-  /* Slogan ticker */
   .hud-slogan {
-    position: absolute;
-    bottom: 92px;
-    left: 0; right: 0;
+    position: absolute; bottom: 92px; left: 0; right: 0;
     background: linear-gradient(90deg, transparent, rgba(180,0,0,0.85) 10%, rgba(180,0,0,0.85) 90%, transparent);
-    padding: 6px 20px;
-    overflow: hidden;
-    pointer-events: none;
+    padding: 6px 20px; overflow: hidden;
   }
-
-  .slogan-track {
-    display: flex;
-    gap: 60px;
-    animation: ticker 18s linear infinite;
-    white-space: nowrap;
-  }
-
+  .slogan-track { display: flex; gap: 60px; animation: ticker 18s linear infinite; white-space: nowrap; }
   .slogan-item {
     font-family: 'Bebas Neue', sans-serif;
     font-size: clamp(14px, 3.5vw, 22px);
-    letter-spacing: 2px;
-    color: var(--tvk-gold);
-    text-shadow: 1px 1px 0 #000;
-    flex-shrink: 0;
+    letter-spacing: 2px; color: var(--tvk-gold);
+    text-shadow: 1px 1px 0 #000; flex-shrink: 0;
   }
+  .slogan-item .sep { color: rgba(255,255,255,0.4); margin: 0 8px; }
+  @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 
-  .slogan-item .sep {
-    color: rgba(255,255,255,0.5);
-    margin: 0 8px;
-  }
-
-  @keyframes ticker {
-    0%   { transform: translateX(0); }
-    100% { transform: translateX(-50%); }
-  }
-
-  /* Face detection indicator */
   #faceStatus {
-    position: absolute;
-    top: 70px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.55);
-    border: 1px solid rgba(255,215,0,0.4);
-    border-radius: 20px;
-    padding: 4px 14px;
-    font-size: 11px;
-    font-family: 'Oswald', sans-serif;
-    letter-spacing: 1px;
-    color: rgba(255,255,255,0.7);
-    z-index: 5;
-    pointer-events: none;
-    transition: opacity 0.5s;
+    position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.55); border: 1px solid rgba(255,215,0,0.4);
+    border-radius: 20px; padding: 4px 14px;
+    font-size: 11px; letter-spacing: 1px; color: rgba(255,255,255,0.7);
+    z-index: 5; pointer-events: none;
   }
+  #faceStatus.detected { border-color: #00ff88; color: #00ff88; }
 
-  #faceStatus.detected {
-    border-color: #00ff88;
-    color: #00ff88;
-  }
-
-  /* ── BOTTOM CONTROLS ── */
-  #controls {
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    z-index: 6;
-    background: linear-gradient(0deg, rgba(10,0,0,0.95) 60%, transparent 100%);
-    padding: 12px 20px 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-  }
-
-  .ctrl-btn {
-    border: none;
-    border-radius: 50px;
-    cursor: pointer;
-    font-family: 'Oswald', sans-serif;
-    font-size: 12px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    transition: all 0.2s;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    padding: 10px 14px;
-    background: rgba(255,255,255,0.07);
-    color: rgba(255,255,255,0.7);
-    border: 1px solid rgba(255,255,255,0.15);
-    min-width: 60px;
-  }
-
-  .ctrl-btn:active { transform: scale(0.92); }
-
-  .ctrl-btn .icon { font-size: 20px; }
-
-  /* Main capture button */
-  #captureBtn {
-    width: 68px;
-    height: 68px;
-    border-radius: 50%;
-    border: 3px solid var(--tvk-gold);
-    background: radial-gradient(circle at 40% 35%, #ff3333, var(--tvk-red));
-    box-shadow: 0 0 20px rgba(204,0,0,0.6), 0 0 40px rgba(204,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.3);
-    cursor: pointer;
-    transition: all 0.2s;
-    position: relative;
-    flex-shrink: 0;
-  }
-
-  #captureBtn::after {
-    content: '';
-    position: absolute;
-    inset: 5px;
-    border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.3);
-  }
-
-  #captureBtn:active {
-    transform: scale(0.88);
-    box-shadow: 0 0 10px rgba(204,0,0,0.4);
-  }
-
-  /* Slogan switcher overlay */
   #sloganOverlay {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    z-index: 4;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.4s;
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    text-align: center; z-index: 4; pointer-events: none; opacity: 0;
   }
-
-  #sloganOverlay.show {
-    opacity: 1;
-    animation: sloganPop 2.5s ease forwards;
-  }
-
+  #sloganOverlay.show { animation: sloganPop 2.5s ease forwards; }
   @keyframes sloganPop {
-    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
-    15%  { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
-    75%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-    100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+    0%  { opacity:0; transform:translate(-50%,-50%) scale(0.7); }
+    15% { opacity:1; transform:translate(-50%,-50%) scale(1.05); }
+    75% { opacity:1; transform:translate(-50%,-50%) scale(1); }
+    100%{ opacity:0; transform:translate(-50%,-50%) scale(1); }
   }
-
   .slogan-big {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(28px, 7vw, 56px);
-    letter-spacing: 4px;
-    color: var(--tvk-gold);
+    font-size: clamp(28px, 7vw, 56px); letter-spacing: 4px; color: var(--tvk-gold);
     text-shadow: 0 0 30px rgba(255,215,0,0.8), 3px 3px 0 rgba(180,0,0,0.8), 6px 6px 0 rgba(0,0,0,0.5);
-    line-height: 1.1;
-    padding: 0 20px;
+    line-height: 1.1; padding: 0 20px;
   }
-
   .slogan-tamil {
     font-family: 'Tiro Tamil', serif;
-    font-size: clamp(14px, 3.5vw, 22px);
-    color: rgba(255,255,255,0.9);
-    text-shadow: 1px 1px 4px #000, 0 0 12px rgba(255,215,0,0.4);
-    margin-top: 4px;
+    font-size: clamp(14px, 3.5vw, 22px); color: rgba(255,255,255,0.9);
+    text-shadow: 1px 1px 4px #000, 0 0 12px rgba(255,215,0,0.4); margin-top: 4px;
   }
 
-  /* Flash effect on capture */
+  #recIndicator {
+    position: absolute; top: 70px; right: 14px;
+    display: none; align-items: center; gap: 6px;
+    background: rgba(0,0,0,0.65); border: 1px solid #ff3333;
+    border-radius: 20px; padding: 4px 12px;
+    font-size: 11px; letter-spacing: 1px; color: #ff4444;
+    z-index: 5; pointer-events: none;
+  }
+  #recIndicator.active { display: flex; }
+  #recDot {
+    width: 8px; height: 8px; border-radius: 50%; background: #ff3333;
+    animation: blink 1s ease infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
   #flash {
-    position: absolute;
-    inset: 0;
-    background: white;
-    z-index: 10;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.05s;
+    position: absolute; inset: 0; background: white;
+    z-index: 10; opacity: 0; pointer-events: none; transition: opacity 0.05s;
   }
   #flash.active { opacity: 0.85; }
 
-  /* Scan line effect */
-  #scanLines {
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(0,0,0,0.03) 2px,
-      rgba(0,0,0,0.03) 4px
-    );
-    z-index: 3;
-    pointer-events: none;
-  }
-
-  /* Model placement indicator */
-  #placementHint {
-    position: absolute;
-    bottom: 140px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.6);
-    border: 1px solid rgba(255,215,0,0.3);
-    border-radius: 12px;
-    padding: 6px 16px;
-    font-size: 11px;
-    color: rgba(255,215,0,0.8);
-    letter-spacing: 1px;
-    z-index: 5;
-    pointer-events: none;
-    display: none;
-  }
-
-  /* Toast notification */
   #toast {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(0,0,0,0.85);
-    border: 1px solid var(--tvk-gold);
-    border-radius: 12px;
-    padding: 14px 24px;
-    color: var(--tvk-gold);
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 18px;
-    letter-spacing: 2px;
-    z-index: 20;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s;
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    background: rgba(0,0,0,0.85); border: 1px solid var(--tvk-gold);
+    border-radius: 12px; padding: 14px 24px;
+    color: var(--tvk-gold); font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px; letter-spacing: 2px;
+    z-index: 20; opacity: 0; pointer-events: none; transition: opacity 0.3s;
     white-space: nowrap;
   }
-
   #toast.show { opacity: 1; }
 
+  #controls {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 6;
+    background: linear-gradient(0deg, rgba(10,0,0,0.95) 60%, transparent 100%);
+    padding: 12px 20px 20px;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .ctrl-btn {
+    border: none; border-radius: 50px; cursor: pointer;
+    font-family: 'Oswald', sans-serif; font-size: 11px;
+    letter-spacing: 1px; text-transform: uppercase;
+    transition: all 0.2s;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.15); min-width: 58px;
+  }
+  .ctrl-btn.rec-active { border-color: #ff3333 !important; color: #ff4444 !important; background: rgba(255,0,0,0.15) !important; }
+  .ctrl-btn:active { transform: scale(0.92); }
+  .ctrl-btn .icon { font-size: 20px; }
+
+  #captureBtn {
+    width: 68px; height: 68px; border-radius: 50%;
+    border: 3px solid var(--tvk-gold);
+    background: radial-gradient(circle at 40% 35%, #ff3333, var(--tvk-red));
+    box-shadow: 0 0 20px rgba(204,0,0,0.6), 0 0 40px rgba(204,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.3);
+    cursor: pointer; transition: all 0.2s; position: relative; flex-shrink: 0;
+  }
+  #captureBtn::after {
+    content:''; position:absolute; inset:5px;
+    border-radius:50%; border:2px solid rgba(255,255,255,0.3);
+  }
+  #captureBtn:active { transform: scale(0.88); }
+
+  /* SPLASH */
+  #splash {
+    position: absolute; inset: 0; z-index: 30;
+    background: radial-gradient(ellipse at center, #300000 0%, #000 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+    transition: opacity 0.6s;
+  }
+  #splash h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(34px, 10vw, 68px); letter-spacing: 6px;
+    color: var(--tvk-gold);
+    text-shadow: 0 0 40px rgba(255,215,0,0.5), 3px 3px 0 #660000;
+    text-align: center; line-height: 1;
+  }
+  #splash p {
+    font-family: 'Tiro Tamil', serif;
+    font-size: clamp(14px, 4vw, 22px); color: rgba(255,255,255,0.8); text-align: center;
+  }
+  #startBtn {
+    background: linear-gradient(135deg, #CC0000, #880000);
+    border: 2px solid var(--tvk-gold); border-radius: 50px;
+    padding: 14px 44px; color: var(--tvk-gold);
+    font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 3px;
+    cursor: pointer; box-shadow: 0 0 24px rgba(204,0,0,0.55);
+    transition: transform 0.2s;
+  }
+  #startBtn:active { transform: scale(0.94); }
+  .splash-sub {
+    font-family: 'Oswald', sans-serif; font-size: 11px; letter-spacing: 2px;
+    color: rgba(255,215,0,0.5); text-align: center;
+  }
 </style>
 </head>
 <body>
 
-<!-- Camera feed -->
-<video id="video" autoplay playsinline muted></video>
-
-<!-- Scan lines -->
-<div id="scanLines"></div>
-
-<!-- A-Frame 3D scene (transparent) -->
-<div id="scene-container">
-<a-scene
-  embedded
-  vr-mode-ui="enabled: false"
-  renderer="alpha: true; antialias: true; colorManagement: true; logarithmicDepthBuffer: true"
-  background="color: transparent"
-  style="background:transparent">
-
-  <a-assets timeout="30000">
-    <!-- Removed asset item for direct loading -->
-  </a-assets>
-
-  <!-- Lighting -->
-  <a-light type="ambient" color="#ffffff" intensity="0.7"></a-light>
-  <a-light type="directional" color="#FFE0A0" intensity="1.4" position="2 4 3"></a-light>
-  <a-light type="point" color="#CC0000" intensity="0.6" position="-1 2 -2"></a-light>
-  <a-light type="point" color="#ffffff" intensity="0.4" position="0 3 -2"></a-light>
-
-  <a-entity camera look-controls="enabled: false" wasd-controls="enabled: false" position="0 0 0"></a-entity>
-
-  <!-- Vijay Model -->
-  <a-entity
-    id="vijayModel"
-    gltf-model="tvk_thalapathi_vijay.glb"
-    scale="1.1 1.1 1.1"
-    position="0.9 -0.8 -3"
-    rotation="0 -20 0"
-    animation-mixer
-    shadow="cast: true">
-  </a-entity>
-
-  <!-- Ground shadow plane -->
-  <a-plane
-    id="shadowPlane"
-    position="0.9 -1.6 -3"
-    rotation="-90 0 0"
-    width="1.2" height="0.6"
-    color="#CC0000"
-    opacity="0.2"
-    shader="flat">
-  </a-plane>
-
-</a-scene>
+<!-- INTRO SPLASH -->
+<div id="splash">
+  <h1>TVK<br><span style="color:#fff;font-size:0.52em;letter-spacing:3px">AR CAMPAIGN</span></h1>
+  <p>தமிழக வெற்றிக் கழகம்<br><span style="font-family:Oswald;font-size:0.7em;letter-spacing:2px;opacity:0.7">TAMILAGA VETTRI KAZHAGAM</span></p>
+  <button id="startBtn" onclick="startApp()">▶ தொடங்கு / START</button>
+  <div class="splash-sub">CAMERA + AUDIO PERMISSION REQUIRED</div>
 </div>
 
-<!-- AR Overlay Canvas (face bbox, party frame) -->
-<canvas id="overlay"></canvas>
+<!-- HIDDEN VIDEO (camera source) -->
+<video id="video" autoplay playsinline muted></video>
 
-<!-- TVK HUD -->
+<!-- SCAN LINES -->
+<div id="scanLines"></div>
+
+<!-- MAIN AR CANVAS -->
+<canvas id="arCanvas"></canvas>
+
+<!-- HUD -->
 <div id="hud">
-  <!-- Top Bar -->
   <div class="hud-top">
     <div class="tvk-logo-text">TVK <span>✦</span> Campaign</div>
     <div class="hud-top-right">
@@ -431,608 +246,417 @@
       <span class="tagline" style="font-family:'Oswald';font-size:10px;opacity:0.7;letter-spacing:1px;">TAMILAGA VETTRI KAZHAGAM</span>
     </div>
   </div>
-
-  <!-- Corner brackets -->
   <div class="corner corner-tl"></div>
   <div class="corner corner-tr"></div>
   <div class="corner corner-bl"></div>
   <div class="corner corner-br"></div>
-
-  <!-- Slogan ticker -->
   <div class="hud-slogan">
-    <div class="slogan-track" id="sloganTrack">
-      <!-- JS fills this -->
-    </div>
+    <div class="slogan-track" id="sloganTrack"></div>
   </div>
 </div>
 
-<!-- Face status -->
+<!-- FACE STATUS -->
 <div id="faceStatus">LOOKING FOR FACE…</div>
 
-<!-- Slogan popup overlay -->
+<!-- REC INDICATOR -->
+<div id="recIndicator"><div id="recDot"></div>&nbsp;REC</div>
+
+<!-- SLOGAN POPUP -->
 <div id="sloganOverlay">
-  <div class="slogan-big" id="sloganBig">MAKKAL MUDHAL</div>
+  <div class="slogan-big"  id="sloganBig">MAKKAL MUDHAL</div>
   <div class="slogan-tamil" id="sloganTamil">மக்களே முதல்</div>
 </div>
 
-<!-- Placement hint -->
-<div id="placementHint">✦ FACE DETECTED – VIJAY PLACED BESIDE YOU</div>
-
-<!-- Flash -->
+<!-- FLASH -->
 <div id="flash"></div>
 
-<!-- Toast -->
-<div id="toast" id="toast">PHOTO SAVED!</div>
+<!-- TOAST -->
+<div id="toast"></div>
 
-<!-- Controls -->
+<!-- CONTROLS -->
 <div id="controls">
-  <!-- Slogan toggle -->
   <button class="ctrl-btn" onclick="cycleSloganOverlay()">
     <span class="icon">🎤</span>
     <span>SLOGAN</span>
   </button>
 
-  <!-- Capture -->
-  <button id="captureBtn" onclick="capturePhoto()" title="Capture"></button>
+  <button id="captureBtn" onclick="capturePhoto()" title="Capture Photo"></button>
 
-  <!-- Audio toggle -->
-  <button class="ctrl-btn" id="audioBtn" onclick="toggleAudio()">
-    <span class="icon">🔊</span>
-    <span>AUDIO</span>
+  <button class="ctrl-btn" id="recBtn" onclick="toggleRecording()">
+    <span class="icon" id="recIcon">🎥</span>
+    <span id="recLabel">RECORD</span>
   </button>
 </div>
 
-<!-- Model debug panel -->
-<div id="modelDebug" style="
-  position:absolute; top:70px; left:50%; transform:translateX(-50%);
-  background:rgba(0,0,0,0.75); border:1px solid #CC0000; border-radius:8px;
-  padding:8px 14px; font-size:11px; color:#FFD700; z-index:10;
-  font-family:'Oswald',sans-serif; letter-spacing:1px; text-align:center;
-  pointer-events:none; display:none;" id="modelDebug">
-  LOADING MODEL…
-</div>
-</div>
+<!-- HIDDEN CAPTURE CANVAS -->
+<canvas id="captureCanvas" style="display:none"></canvas>
 
-<!-- Hidden capture canvas -->
-<canvas id="captureCanvas"></canvas>
+<!-- TVK SONG (auto-play on start) -->
+<audio id="bgAudio" src="tvksong.mp3" loop preload="auto"></audio>
 
 <script>
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 // DATA
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 const SLOGANS = [
-  { en: "MAKKAL MUDHAL",     ta: "மக்களே முதல்" },
-  { en: "VIJAY LEADING US",  ta: "விஜய் நம் வழிகாட்டி" },
-  { en: "NAMMA THALAPATHI",  ta: "நம்ம தலபதி" },
-  { en: "TVK – THE PEOPLE",  ta: "TVK – மக்கள் கட்சி" },
-  { en: "NEW DAWN BEGINS",   ta: "புதிய விடியல்" },
-  { en: "TRUTH & VICTORY",   ta: "உண்மை • வெற்றி" },
+  { en: "MAKKAL MUDHAL",        ta: "மக்களே முதல்" },
+  { en: "NAMMA THALAPATHI",     ta: "நம்ம தலபதி" },
+  { en: "TVK – THE PEOPLE",     ta: "TVK – மக்கள் கட்சி" },
+  { en: "NEW DAWN BEGINS",      ta: "புதிய விடியல்" },
+  { en: "TRUTH & VICTORY",      ta: "உண்மை • வெற்றி" },
+  { en: "VIJAY FOR TAMIL NADU", ta: "விஜய் தமிழகத்திற்காக" },
 ];
-
-const TICKER_SLOGANS = [
-  "✦ MAKKAL MUDHAL ✦",
-  "நம்ம தலபதி",
-  "✦ TAMILAGA VETTRI KAZHAGAM ✦",
-  "புதிய விடியல்",
-  "✦ TVK WITH THE PEOPLE ✦",
-  "விஜய் நம் வழிகாட்டி",
-  "✦ TRUTH & VICTORY ✦",
-  "TVK – மக்கள் கட்சி",
+const TICKER = [
+  "✦ MAKKAL MUDHAL ✦","நம்ம தலபதி",
+  "✦ TAMILAGA VETTRI KAZHAGAM ✦","புதிய விடியல்",
+  "✦ TVK WITH THE PEOPLE ✦","விஜய் நம் வழிகாட்டி",
+  "✦ TRUTH & VICTORY ✦","TVK – மக்கள் கட்சி",
 ];
+let sloganIdx = 0, lastBlob = null, appStarted = false;
 
-let currentSloganIdx = 0;
-let lastPhotoBlob = null;
-
-// ═══════════════════════════════════════════════
-// BUILD TICKER
-// ═══════════════════════════════════════════════
-(function buildTicker() {
-  const track = document.getElementById('sloganTrack');
-  // duplicate for seamless loop
-  const full = [...TICKER_SLOGANS, ...TICKER_SLOGANS];
-  track.innerHTML = full.map(s =>
-    `<span class="slogan-item">${s}<span class="sep">|</span></span>`
-  ).join('');
+// ═══════════════════════════════════
+// TICKER
+// ═══════════════════════════════════
+(function() {
+  const t = document.getElementById('sloganTrack');
+  const f = [...TICKER,...TICKER];
+  t.innerHTML = f.map(s=>`<span class="slogan-item">${s}<span class="sep">|</span></span>`).join('');
 })();
 
-// ═══════════════════════════════════════════════
-// CAMERA
-// ═══════════════════════════════════════════════
-const video = document.getElementById('video');
-const overlay = document.getElementById('overlay');
-const ctx = overlay.getContext('2d');
+// ═══════════════════════════════════
+// VIJAY IMAGE
+// ═══════════════════════════════════
+const vijayImg = new Image();
+vijayImg.src = 'vijay.png';
+vijayImg.onload  = () => showToast('✦ THALAPATHI READY ✦');
+vijayImg.onerror = () => showToast('⚠ vijay.png NOT FOUND');
 
-function resizeOverlay() {
-  overlay.width  = window.innerWidth;
-  overlay.height = window.innerHeight;
+// Smoothed position (normalized)
+let vPos   = { x: 0.72, y: 0.15, w: 200 };
+let vTarget= { x: 0.72, y: 0.15, w: 200 };
+
+// ═══════════════════════════════════
+// CANVAS
+// ═══════════════════════════════════
+const video    = document.getElementById('video');
+const arCanvas = document.getElementById('arCanvas');
+const ctx      = arCanvas.getContext('2d');
+
+function resize() {
+  arCanvas.width  = window.innerWidth;
+  arCanvas.height = window.innerHeight;
 }
-resizeOverlay();
-window.addEventListener('resize', resizeOverlay);
+resize();
+window.addEventListener('resize', resize);
 
-navigator.mediaDevices.getUserMedia({
-  video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
-}).then(stream => {
-  video.srcObject = stream;
-}).catch(err => {
-  console.warn('Camera error:', err);
-  showToast('CAMERA PERMISSION NEEDED');
-});
+// ═══════════════════════════════════
+// RENDER LOOP
+// ═══════════════════════════════════
+function renderLoop() {
+  const W = arCanvas.width, H = arCanvas.height;
+  ctx.clearRect(0, 0, W, H);
 
-// ═══════════════════════════════════════════════
-// A-FRAME MODEL REFERENCE
-// ═══════════════════════════════════════════════
-const vijayModel = document.getElementById('vijayModel');
-const shadowPlane = document.getElementById('shadowPlane');
-const faceStatus  = document.getElementById('faceStatus');
-const placementHint = document.getElementById('placementHint');
+  // 1 — Camera (mirrored)
+  ctx.save();
+  ctx.translate(W, 0); ctx.scale(-1, 1);
+  if (video.readyState >= 2) ctx.drawImage(video, 0, 0, W, H);
+  ctx.restore();
 
-// Model loading events
-vijayModel.addEventListener('model-loaded', () => {
-  console.log('Vijay model loaded successfully');
-  faceStatus.textContent = 'MODEL LOADED – LOOKING FOR FACE…';
-});
+  // 2 — Smooth lerp vijay pos
+  vPos.x += (vTarget.x - vPos.x) * 0.1;
+  vPos.y += (vTarget.y - vPos.y) * 0.1;
+  vPos.w += (vTarget.w - vPos.w) * 0.1;
 
-vijayModel.addEventListener('model-error', (event) => {
-  console.error('Model failed to load:', event.detail);
-  faceStatus.textContent = 'MODEL LOAD ERROR – CHECK CONSOLE';
-  // Fallback: hide the model
-  vijayModel.setAttribute('visible', false);
-  shadowPlane.setAttribute('visible', false);
-});
+  // 3 — Draw Vijay PNG
+  if (vijayImg.complete && vijayImg.naturalWidth > 0) {
+    const iw = vPos.w;
+    const ih = vijayImg.naturalHeight * (iw / vijayImg.naturalWidth);
+    const ix = vPos.x;
+    const iy = vPos.y;
 
-let faceDetected = false;
+    // Red glow beneath image
+    ctx.save();
+    ctx.shadowBlur = 45; ctx.shadowColor = 'rgba(204,0,0,0.65)';
+    ctx.drawImage(vijayImg, ix, iy, iw, ih);
+    ctx.restore();
+
+    // Ground glow ellipse
+    const gx = ix + iw/2, gy = iy + ih;
+    const gr = ctx.createRadialGradient(gx, gy, 0, gx, gy, iw * 0.55);
+    gr.addColorStop(0, 'rgba(204,0,0,0.35)'); gr.addColorStop(1, 'transparent');
+    ctx.beginPath();
+    ctx.ellipse(gx, gy, iw*0.55, iw*0.1, 0, 0, Math.PI*2);
+    ctx.fillStyle = gr; ctx.fill();
+  }
+
+  // 4 — Face box
+  if (faceBox) drawFaceFrame(W, H);
+
+  requestAnimationFrame(renderLoop);
+}
+
+// ═══════════════════════════════════
+// FACE DETECTION
+// ═══════════════════════════════════
 let faceBox = null;
 
-// ═══════════════════════════════════════════════
-// FACE DETECTION
-// ═══════════════════════════════════════════════
-const faceDetection = new FaceDetection({
-  locateFile: file =>
-    `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
+const fd = new FaceDetection({
+  locateFile: f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${f}`
 });
-
-faceDetection.setOptions({
-  model: 'short',
-  minDetectionConfidence: 0.55
-});
-
-faceDetection.onResults(results => {
-  ctx.clearRect(0, 0, overlay.width, overlay.height);
-
+fd.setOptions({ model:'short', minDetectionConfidence:0.55 });
+fd.onResults(results => {
   if (results.detections && results.detections.length > 0) {
-    const det  = results.detections[0];
-    const box  = det.boundingBox;
-    faceBox = box;
-    faceDetected = true;
+    faceBox = results.detections[0].boundingBox;
+    document.getElementById('faceStatus').textContent = '✦ FACE DETECTED – READY';
+    document.getElementById('faceStatus').classList.add('detected');
 
-    faceStatus.textContent = '✦ FACE DETECTED – READY';
-    faceStatus.classList.add('detected');
-    placementHint.style.display = 'block';
+    // Position Vijay beside face
+    const W = arCanvas.width, H = arCanvas.height;
+    const fsx = (1 - faceBox.xCenter) * W;   // screen X (mirror corrected)
+    const fsy = faceBox.yCenter * H;
+    const fw  = faceBox.width  * W;
 
-    // ── Draw face frame on overlay ──
-    const W = overlay.width, H = overlay.height;
-    // NOTE: video is CSS-mirrored; compensate for bounding box
-    const bx = (1 - box.xCenter - box.width / 2) * W;
-    const by = (box.yCenter - box.height / 2) * H;
-    const bw = box.width  * W;
-    const bh = box.height * H;
-
-    // Glow border
-    ctx.shadowBlur   = 16;
-    ctx.shadowColor  = '#CC0000';
-    ctx.strokeStyle  = '#FFD700';
-    ctx.lineWidth    = 2.5;
-    ctx.strokeRect(bx - 10, by - 10, bw + 20, bh + 20);
-
-    // Corner accents
-    ctx.shadowBlur = 0;
-    drawCornerAccents(ctx, bx - 10, by - 10, bw + 20, bh + 20, 18, '#FFD700');
-
-    // "TVK" label above face
-    ctx.fillStyle    = 'rgba(180,0,0,0.82)';
-    const labelW = 60, labelH = 20;
-    ctx.fillRect(bx - 10 + (bw + 20) / 2 - labelW / 2, by - 34, labelW, labelH);
-    ctx.fillStyle    = '#FFD700';
-    ctx.font         = 'bold 11px "Oswald", sans-serif';
-    ctx.textAlign    = 'center';
-    ctx.fillText('✦ TVK ✦', bx - 10 + (bw + 20) / 2, by - 20);
-    ctx.textAlign    = 'left';
-
-    // ── Position Vijay model beside face ──
-    // Map face center to 3D position
-    const normX = box.xCenter;  // 0-1, left to right (mirrored)
-    const normY = box.yCenter;  // 0-1, top to bottom
-
-    // 3D: X goes -1.5 to +1.5, Y goes 0.8 to -0.8
-    let modelX = (0.5 - normX) * 3 + 1.0;  // offset to the side
-    let modelY = (0.5 - normY) * 1.5 - 0.5;
-    let modelZ = -3.0;
-
-    // Smooth interpolation
-    const cur = vijayModel.object3D.position;
-    vijayModel.object3D.position.set(
-      cur.x + (modelX - cur.x) * 0.12,
-      cur.y + (modelY - cur.y) * 0.12,
-      modelZ
-    );
-    shadowPlane.object3D.position.set(
-      vijayModel.object3D.position.x,
-      vijayModel.object3D.position.y - 1.0,
-      modelZ
-    );
-
+    vTarget.w = fw * 1.7;
+    vTarget.x = fsx + fw * 0.6;
+    vTarget.y = fsy - vTarget.w * 0.45;
   } else {
-    faceDetected = false;
     faceBox = null;
-    faceStatus.textContent = 'LOOKING FOR FACE…';
-    faceStatus.classList.remove('detected');
-    placementHint.style.display = 'none';
+    document.getElementById('faceStatus').textContent = 'LOOKING FOR FACE…';
+    document.getElementById('faceStatus').classList.remove('detected');
   }
 });
 
-function drawCornerAccents(ctx, x, y, w, h, len, color) {
-  ctx.strokeStyle = color;
-  ctx.lineWidth   = 3;
-  const corners = [
-    [x, y, x + len, y, x, y + len],
-    [x + w, y, x + w - len, y, x + w, y + len],
-    [x, y + h, x + len, y + h, x, y + h - len],
-    [x + w, y + h, x + w - len, y + h, x + w, y + h - len],
-  ];
-  corners.forEach(([x1, y1, x2, y2, x3, y3]) => {
-    ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x1, y1); ctx.lineTo(x3, y3); ctx.stroke();
+function drawFaceFrame(W, H) {
+  const bx = (1 - faceBox.xCenter - faceBox.width/2)  * W;
+  const by = (faceBox.yCenter - faceBox.height/2) * H;
+  const bw = faceBox.width  * W;
+  const bh = faceBox.height * H;
+  const px = 12, py = 12;
+
+  ctx.save();
+  ctx.shadowBlur=18; ctx.shadowColor='#CC0000';
+  ctx.strokeStyle='#FFD700'; ctx.lineWidth=2.5;
+  ctx.strokeRect(bx-px, by-py, bw+px*2, bh+py*2);
+  ctx.restore();
+
+  // Corner accents
+  ctx.save();
+  ctx.strokeStyle='#FFD700'; ctx.lineWidth=3;
+  const len=18;
+  [[bx-px,by-py,bx-px+len,by-py,bx-px,by-py+len],
+   [bx+bw+px,by-py,bx+bw+px-len,by-py,bx+bw+px,by-py+len],
+   [bx-px,by+bh+py,bx-px+len,by+bh+py,bx-px,by+bh+py-len],
+   [bx+bw+px,by+bh+py,bx+bw+px-len,by+bh+py,bx+bw+px,by+bh+py-len]]
+  .forEach(([x1,y1,x2,y2,x3,y3])=>{
+    ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x1,y1); ctx.lineTo(x3,y3); ctx.stroke();
+  });
+  ctx.restore();
+
+  // TVK badge
+  const cx = bx-px + (bw+px*2)/2;
+  ctx.fillStyle='rgba(180,0,0,0.88)';
+  ctx.fillRect(cx-34, by-py-24, 68, 22);
+  ctx.fillStyle='#FFD700'; ctx.font='bold 11px Oswald,sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText('✦ TVK ✦', cx, by-py-8);
+  ctx.textAlign='left';
+}
+
+// ═══════════════════════════════════
+// START APP
+// ═══════════════════════════════════
+function startApp() {
+  if (appStarted) return;
+  appStarted = true;
+
+  // Fade out splash
+  const splash = document.getElementById('splash');
+  splash.style.opacity = '0';
+  setTimeout(() => splash.style.display = 'none', 650);
+
+  // Play TVK song
+  const audio = document.getElementById('bgAudio');
+  audio.volume = 0.8;
+  audio.play()
+    .then(()=> showToast('🎵 TVK SONG PLAYING'))
+    .catch(e => {
+      console.warn('Audio blocked:', e);
+      showToast('🔇 TAP AGAIN FOR MUSIC');
+      document.body.addEventListener('click', ()=> audio.play(), { once: true });
+    });
+
+  // Camera + MediaPipe
+  navigator.mediaDevices.getUserMedia({
+    video: { facingMode:'user', width:{ideal:1280}, height:{ideal:720} },
+    audio: false
+  }).then(stream => {
+    video.srcObject = stream;
+    const mpCam = new Camera(video, {
+      onFrame: async () => { await fd.send({ image: video }); },
+      width: 640, height: 480
+    });
+    mpCam.start();
+    renderLoop();
+  }).catch(() => {
+    showToast('CAMERA PERMISSION NEEDED');
+    renderLoop(); // still render vijay even without camera
   });
 }
 
-// ═══════════════════════════════════════════════
-// MEDIAPIPE CAMERA LOOP
-// ═══════════════════════════════════════════════
-const mpCamera = new Camera(video, {
-  onFrame: async () => {
-    await faceDetection.send({ image: video });
-  },
-  width: 640,
-  height: 480
-});
-mpCamera.start();
-
-// ═══════════════════════════════════════════════
-// SLOGAN OVERLAY CYCLE
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
+// SLOGAN
+// ═══════════════════════════════════
 function cycleSloganOverlay() {
-  currentSloganIdx = (currentSloganIdx + 1) % SLOGANS.length;
-  const s = SLOGANS[currentSloganIdx];
-  const overlay_el = document.getElementById('sloganOverlay');
+  sloganIdx = (sloganIdx + 1) % SLOGANS.length;
+  const s = SLOGANS[sloganIdx];
+  const el = document.getElementById('sloganOverlay');
   document.getElementById('sloganBig').textContent   = s.en;
   document.getElementById('sloganTamil').textContent = s.ta;
-  overlay_el.classList.remove('show');
-  void overlay_el.offsetWidth;
-  overlay_el.classList.add('show');
-  setTimeout(() => overlay_el.classList.remove('show'), 2600);
-  // Speak the Tamil slogan
-  speakSlogan(s.ta);
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2600);
+  if (window.speechSynthesis) {
+    const u = new SpeechSynthesisUtterance(s.ta);
+    u.lang='ta-IN'; u.rate=0.85; u.pitch=1.1;
+    const tv = speechSynthesis.getVoices().find(v=>v.lang.startsWith('ta'));
+    if (tv) u.voice = tv;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  }
 }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 // CAPTURE PHOTO
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 async function capturePhoto() {
-  // Flash
-  const flash = document.getElementById('flash');
-  flash.classList.add('active');
-  setTimeout(() => flash.classList.remove('active'), 150);
+  const fl = document.getElementById('flash');
+  fl.classList.add('active');
+  setTimeout(() => fl.classList.remove('active'), 150);
+  await new Promise(r=>setTimeout(r,80));
 
-  // Wait a frame
-  await new Promise(r => setTimeout(r, 60));
+  const cc = document.getElementById('captureCanvas');
+  const cctx = cc.getContext('2d');
+  cc.width = arCanvas.width; cc.height = arCanvas.height;
+  cctx.drawImage(arCanvas, 0, 0);
+  drawWatermark(cctx, cc.width, cc.height);
 
-  const canvas = document.getElementById('captureCanvas');
-  const cctx   = canvas.getContext('2d');
-  canvas.width  = window.innerWidth;
-  canvas.height = window.innerHeight;
-
-  // 1. Camera feed (mirrored to match display)
-  cctx.save();
-  cctx.translate(canvas.width, 0);
-  cctx.scale(-1, 1);
-  cctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  cctx.restore();
-
-  // 2. A-Frame 3D scene
-  const aScene = document.querySelector('a-scene canvas');
-  if (aScene) {
-    try { cctx.drawImage(aScene, 0, 0, canvas.width, canvas.height); } catch(e) {}
-  }
-
-  // 3. AR overlay (face frame)
-  cctx.drawImage(overlay, 0, 0);
-
-  // 4. TVK branding watermark bottom
-  drawWatermark(cctx, canvas.width, canvas.height);
-
-  // Save
-  canvas.toBlob(blob => {
-    lastPhotoBlob = blob;
+  cc.toBlob(blob => {
+    lastBlob = blob;
     const url  = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.download = `TVK_Campaign_${Date.now()}.png`;
-    link.href = url;
-    link.click();
+    const a    = document.createElement('a');
+    a.download = `TVK_Campaign_${Date.now()}.png`;
+    a.href = url; a.click();
     URL.revokeObjectURL(url);
     showToast('📸 PHOTO SAVED!');
   }, 'image/png');
 }
 
 function drawWatermark(c, W, H) {
-  // Bottom gradient
-  const grad = c.createLinearGradient(0, H - 80, 0, H);
-  grad.addColorStop(0, 'transparent');
-  grad.addColorStop(1, 'rgba(130,0,0,0.75)');
-  c.fillStyle = grad;
-  c.fillRect(0, H - 80, W, 80);
-
-  // Watermark text
-  c.font      = 'bold 16px "Bebas Neue", sans-serif';
-  c.fillStyle = 'rgba(255,215,0,0.9)';
-  c.textAlign = 'center';
-  c.fillText('✦ தமிழக வெற்றிக் கழகம் – TAMILAGA VETTRI KAZHAGAM ✦', W / 2, H - 18);
-  c.textAlign = 'left';
+  const g = c.createLinearGradient(0, H-80, 0, H);
+  g.addColorStop(0,'transparent'); g.addColorStop(1,'rgba(130,0,0,0.80)');
+  c.fillStyle=g; c.fillRect(0,H-80,W,80);
+  c.font='bold 14px "Bebas Neue",sans-serif';
+  c.fillStyle='rgba(255,215,0,0.92)'; c.textAlign='center';
+  c.fillText('✦ தமிழக வெற்றிக் கழகம் – TAMILAGA VETTRI KAZHAGAM ✦', W/2, H-18);
+  c.textAlign='left';
 }
 
-// ═══════════════════════════════════════════════
-// SHARE
-// ═══════════════════════════════════════════════
-async function sharePhoto() {
-  if (!lastPhotoBlob) {
-    showToast('CAPTURE A PHOTO FIRST!');
-    return;
-  }
-  const file = new File([lastPhotoBlob], 'TVK_Campaign.png', { type: 'image/png' });
-  if (navigator.share && navigator.canShare({ files: [file] })) {
-    await navigator.share({
-      title : 'TVK Campaign – Thalapathi Vijay',
-      text  : '✦ நம்ம தலபதி – Tamilaga Vettri Kazhagam ✦',
-      files : [file]
+// ═══════════════════════════════════
+// VIDEO RECORDING
+// ═══════════════════════════════════
+let mediaRecorder = null, chunks = [], isRecording = false, audioCtxRec = null;
+
+async function toggleRecording() {
+  if (!appStarted) { showToast('PRESS START FIRST'); return; }
+  isRecording ? stopRecording() : await startRecording();
+}
+
+async function startRecording() {
+  chunks = [];
+
+  // Canvas stream at 30fps
+  const canvasStream = arCanvas.captureStream(30);
+
+  // Try to capture bgAudio into recording
+  try {
+    audioCtxRec = new (window.AudioContext || window.webkitAudioContext)();
+    const bgAudio = document.getElementById('bgAudio');
+    const src  = audioCtxRec.createMediaElementSource(bgAudio);
+    const dest = audioCtxRec.createMediaStreamDestination();
+    src.connect(dest);
+    src.connect(audioCtxRec.destination); // keep speakers on
+    const aTrack = dest.stream.getAudioTracks()[0];
+    if (aTrack) canvasStream.addTrack(aTrack);
+  } catch(e) { console.warn('Audio capture skipped:', e); }
+
+  const mimes = [
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm',
+    'video/mp4',
+  ];
+  const mime = mimes.find(m => MediaRecorder.isTypeSupported(m)) || '';
+
+  try {
+    mediaRecorder = new MediaRecorder(canvasStream, {
+      mimeType: mime || undefined,
+      videoBitsPerSecond: 4_000_000
     });
-  } else {
-    showToast('SHARE NOT SUPPORTED – PHOTO SAVED!');
+  } catch(e) {
+    showToast('⚠ RECORDING NOT SUPPORTED'); return;
   }
+
+  mediaRecorder.ondataavailable = e => { if (e.data?.size > 0) chunks.push(e.data); };
+  mediaRecorder.onstop = saveVideo;
+  mediaRecorder.start(200);
+  isRecording = true;
+
+  document.getElementById('recIndicator').classList.add('active');
+  document.getElementById('recBtn').classList.add('rec-active');
+  document.getElementById('recIcon').textContent  = '⏹';
+  document.getElementById('recLabel').textContent = 'STOP';
+  showToast('🔴 RECORDING…');
 }
 
-// ═══════════════════════════════════════════════
+function stopRecording() {
+  if (mediaRecorder?.state !== 'inactive') mediaRecorder.stop();
+  isRecording = false;
+  document.getElementById('recIndicator').classList.remove('active');
+  document.getElementById('recBtn').classList.remove('rec-active');
+  document.getElementById('recIcon').textContent  = '🎥';
+  document.getElementById('recLabel').textContent = 'RECORD';
+  showToast('⏹ SAVING VIDEO…');
+}
+
+function saveVideo() {
+  if (!chunks.length) { showToast('⚠ NO VIDEO DATA'); return; }
+  const blob = new Blob(chunks, { type: chunks[0].type || 'video/webm' });
+  const ext  = blob.type.includes('mp4') ? 'mp4' : 'webm';
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.download = `TVK_Campaign_${Date.now()}.${ext}`;
+  a.href = url; a.click();
+  URL.revokeObjectURL(url);
+  showToast(`🎬 VIDEO SAVED (.${ext})`);
+}
+
+// ═══════════════════════════════════
 // TOAST
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
+let toastT = null;
 function showToast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2200);
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
-// ═══════════════════════════════════════════════
-// AUDIO ENGINE (Web Audio API – no file needed)
-// ═══════════════════════════════════════════════
-let audioCtx = null;
-let audioPlaying = false;
-let bgGainNode = null;
-let oscillators = [];
-
-function initAudio() {
-  if (audioCtx) return;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-}
-
-// Generate a dramatic TVK-style background music loop using Web Audio
-function startAudio() {
-  initAudio();
-  if (audioPlaying) return;
-  audioPlaying = true;
-
-  // Master gain
-  bgGainNode = audioCtx.createGain();
-  bgGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-  bgGainNode.gain.linearRampToValueAtTime(0.18, audioCtx.currentTime + 1.5);
-  bgGainNode.connect(audioCtx.destination);
-
-  // Reverb convolver
-  const convolver = audioCtx.createConvolver();
-  const reverbBuf = audioCtx.createBuffer(2, audioCtx.sampleRate * 2, audioCtx.sampleRate);
-  for (let c = 0; c < 2; c++) {
-    const d = reverbBuf.getChannelData(c);
-    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
-  }
-  convolver.buffer = reverbBuf;
-  convolver.connect(bgGainNode);
-
-  // Pad chords - TVK red & powerful feel
-  // Notes: D minor pentatonic feel
-  const CHORD_NOTES = [
-    [146.83, 220.00, 261.63], // Dm
-    [130.81, 196.00, 261.63], // C
-    [110.00, 164.81, 220.00], // Am
-    [123.47, 185.00, 246.94], // Bm
-  ];
-
-  let chordIdx = 0;
-  let chordOscs = [];
-
-  function playChord() {
-    // Stop previous
-    chordOscs.forEach(o => { try { o.stop(); } catch(e){} });
-    chordOscs = [];
-
-    if (!audioPlaying) return;
-    const notes = CHORD_NOTES[chordIdx % CHORD_NOTES.length];
-    chordIdx++;
-
-    notes.forEach(freq => {
-      const osc = audioCtx.createOscillator();
-      const g   = audioCtx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-
-      // Slight detune for richness
-      const osc2 = audioCtx.createOscillator();
-      osc2.type = 'triangle';
-      osc2.frequency.setValueAtTime(freq * 1.003, audioCtx.currentTime);
-
-      // Low-pass filter
-      const filter = audioCtx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(800, audioCtx.currentTime);
-      filter.Q.setValueAtTime(1.5, audioCtx.currentTime);
-
-      g.gain.setValueAtTime(0, audioCtx.currentTime);
-      g.gain.linearRampToValueAtTime(0.06, audioCtx.currentTime + 0.4);
-      g.gain.linearRampToValueAtTime(0.04, audioCtx.currentTime + 3.2);
-      g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 4.0);
-
-      osc.connect(filter); osc2.connect(filter);
-      filter.connect(g); g.connect(convolver); g.connect(bgGainNode);
-      osc.start(); osc2.start();
-      osc.stop(audioCtx.currentTime + 4.2);
-      osc2.stop(audioCtx.currentTime + 4.2);
-      chordOscs.push(osc, osc2);
-    });
-
-    if (audioPlaying) setTimeout(playChord, 3600);
-  }
-
-  // Bass pulse
-  function playBass() {
-    if (!audioPlaying) return;
-    const bass = audioCtx.createOscillator();
-    const bg2  = audioCtx.createGain();
-    bass.type = 'sine';
-    bass.frequency.setValueAtTime(73.4, audioCtx.currentTime); // D2
-    bass.frequency.setTargetAtTime(65.4, audioCtx.currentTime + 0.05, 0.1); // C2
-
-    bg2.gain.setValueAtTime(0, audioCtx.currentTime);
-    bg2.gain.linearRampToValueAtTime(0.35, audioCtx.currentTime + 0.02);
-    bg2.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.6);
-    bass.connect(bg2); bg2.connect(bgGainNode);
-    bass.start(); bass.stop(audioCtx.currentTime + 0.65);
-
-    if (audioPlaying) setTimeout(playBass, 750);
-  }
-
-  // Snare-like noise hit
-  function playSnare() {
-    if (!audioPlaying) return;
-    const buf  = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.15, audioCtx.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-    const src  = audioCtx.createBufferSource();
-    src.buffer = buf;
-    const sg   = audioCtx.createGain();
-    const snareFilter = audioCtx.createBiquadFilter();
-    snareFilter.type = 'bandpass';
-    snareFilter.frequency.setValueAtTime(1800, audioCtx.currentTime);
-    sg.gain.setValueAtTime(0.12, audioCtx.currentTime);
-    sg.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
-    src.connect(snareFilter); snareFilter.connect(sg); sg.connect(bgGainNode);
-    src.start();
-    if (audioPlaying) setTimeout(playSnare, 1500);
-  }
-
-  // Kick drum
-  function playKick() {
-    if (!audioPlaying) return;
-    const kick = audioCtx.createOscillator();
-    const kg   = audioCtx.createGain();
-    kick.frequency.setValueAtTime(160, audioCtx.currentTime);
-    kick.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.15);
-    kg.gain.setValueAtTime(0.5, audioCtx.currentTime);
-    kg.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-    kick.connect(kg); kg.connect(bgGainNode);
-    kick.start(); kick.stop(audioCtx.currentTime + 0.35);
-    if (audioPlaying) setTimeout(playKick, 750);
-  }
-
-  playChord();
-  setTimeout(playBass, 200);
-  setTimeout(playSnare, 750);
-  setTimeout(playKick, 0);
-
-  document.getElementById('audioBtn').querySelector('.icon').textContent = '🔇';
-  document.getElementById('audioBtn').querySelector('span:last-child').textContent = 'MUTE';
-  showToast('🎵 AUDIO ON');
-}
-
-function stopAudio() {
-  audioPlaying = false;
-  if (bgGainNode) {
-    bgGainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
-  }
-  oscillators.forEach(o => { try { o.stop(); } catch(e){} });
-  oscillators = [];
-  document.getElementById('audioBtn').querySelector('.icon').textContent = '🔊';
-  document.getElementById('audioBtn').querySelector('span:last-child').textContent = 'AUDIO';
-  showToast('🔇 AUDIO OFF');
-}
-
-function toggleAudio() {
-  if (audioPlaying) { stopAudio(); } else { startAudio(); }
-}
-
-// Speak slogan using Web Speech API
-function speakSlogan(text) {
-  if (!window.speechSynthesis) return;
-  const utt = new SpeechSynthesisUtterance(text);
-  utt.lang = 'ta-IN';
-  utt.rate = 0.85;
-  utt.pitch = 1.1;
-  utt.volume = 1.0;
-  // Fallback to en if Tamil not available
-  const voices = window.speechSynthesis.getVoices();
-  const tamilVoice = voices.find(v => v.lang.startsWith('ta'));
-  if (tamilVoice) utt.voice = tamilVoice;
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(utt);
-}
-
-// ═══════════════════════════════════════════════
-// MODEL LOADING DEBUG + BOB ANIMATION
-// ═══════════════════════════════════════════════
-function initModelEvents() {
-  const el = document.getElementById('vijayModel');
-  const dbg = document.getElementById('modelDebug');
-  dbg.style.display = 'block';
-  dbg.textContent = '⏳ LOADING tvk_thalapathi_vijay.glb…';
-
-  el.addEventListener('model-loaded', () => {
-    dbg.textContent = '✅ MODEL LOADED';
-    setTimeout(() => dbg.style.display = 'none', 2500);
-    showToast('✦ THALAPATHI READY ✦');
-    el.setAttribute('animation__bob', {
-      property: 'position',
-      from: { x: 0.9, y: -0.8, z: -3 },
-      to:   { x: 0.9, y: -0.65, z: -3 },
-      dur: 2200,
-      dir: 'alternate',
-      loop: true,
-      easing: 'easeInOutSine'
-    });
-    const mixer = el.components['animation-mixer'];
-    if (mixer) mixer.playAction('');
-  });
-
-  el.addEventListener('model-error', (e) => {
-    console.error('Model load error:', e.detail);
-    dbg.style.color = '#ff4444';
-    dbg.innerHTML = '❌ GLB NOT FOUND<br><span style="font-size:9px;opacity:0.8">Place tvk_thalapathi_vijay.glb<br>in the SAME folder as this HTML</span>';
-    showToast('⚠ GLB FILE NOT FOUND');
-    // Red placeholder box
-    el.setAttribute('geometry', 'primitive: box; height: 1.8; width: 0.5; depth: 0.3');
-    el.setAttribute('material', 'color: #CC0000; opacity: 0.7; transparent: true');
-  });
-}
-
-document.addEventListener('DOMContentLoaded', initModelEvents);
-
-// Force audio context resume on first touch (iOS requirement)
+// iOS audio resume on touch
 document.addEventListener('touchstart', () => {
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-}, { once: false });
+  const a = document.getElementById('bgAudio');
+  if (appStarted && a.paused) a.play();
+}, { passive: true });
 </script>
 </body>
 </html>
