@@ -2,54 +2,33 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vijay AR Campaign</title>
+<title>Vijay AR Standing</title>
 
-<!-- A-Frame -->
 <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-
-<!-- AR.js -->
-<script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 
 <!-- MediaPipe -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
 
 <style>
-body { margin:0; overflow:hidden; font-family:sans-serif; }
+body { margin:0; overflow:hidden; }
 
-video, #ar-section {
+video, canvas {
   position:absolute;
   width:100%;
   height:100%;
   object-fit:cover;
 }
 
-#overlay {
-  position:absolute;
-  width:160px;
-  pointer-events:none;
-}
-
-.controls {
+button {
   position:absolute;
   bottom:10px;
-  width:100%;
-  display:flex;
-  justify-content:center;
-}
-
-button {
+  left:50%;
+  transform:translateX(-50%);
   padding:12px;
   border:none;
   border-radius:10px;
   background:#ffcc00;
-  font-weight:bold;
-}
-
-#modeSwitch {
-  position:absolute;
-  top:10px;
-  left:10px;
   z-index:10;
 }
 </style>
@@ -57,64 +36,54 @@ button {
 
 <body>
 
-<button id="modeSwitch" onclick="switchMode()">Switch Mode</button>
-
-<!-- SELFIE MODE -->
 <video id="video" autoplay playsinline></video>
-<img id="overlay" src="vijay.png">
 
-<!-- AR MODE -->
-<div id="ar-section" style="display:none;">
-  <a-scene embedded arjs>
-    
-    <a-marker preset="hiro">
-      <a-entity 
-        gltf-model="tvk_thalapathi_vijay.glb"
-        scale="0.4 0.4 0.4"
-        position="0 0 0">
-      </a-entity>
-    </a-marker>
+<!-- A-Frame Scene -->
+<a-scene embedded>
+  <a-entity camera position="0 0 0"></a-entity>
 
-    <a-entity camera></a-entity>
-  </a-scene>
-</div>
+  <a-entity 
+    id="vijayModel"
+    gltf-model="tvk_thalapathi_vijay.glb"
+    scale="0.5 0.5 0.5"
+    position="0 0 -2">
+  </a-entity>
+</a-scene>
 
-<div class="controls">
-  <button onclick="capture()">📸 Capture</button>
-</div>
+<button onclick="capture()">📸 Capture</button>
 
 <canvas id="canvas" style="display:none;"></canvas>
 
 <script>
-let mode = "selfie";
-const video = document.getElementById('video');
-const overlay = document.getElementById('overlay');
+const video = document.getElementById("video");
+const model = document.getElementById("vijayModel");
 
 // CAMERA
 navigator.mediaDevices.getUserMedia({ video: true })
 .then(stream => video.srcObject = stream);
 
-// ================= FACE DETECTION =================
+// FACE DETECTION
 const faceDetection = new FaceDetection({
   locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
 });
 
 faceDetection.setOptions({
-  model: 'short',
+  model: "short",
   minDetectionConfidence: 0.6
 });
 
+// UPDATE MODEL POSITION
 faceDetection.onResults(results => {
-  if (mode !== "selfie") return;
-
   if (results.detections.length > 0) {
+
     const face = results.detections[0].boundingBox;
 
-    const x = face.xCenter * window.innerWidth;
-    const y = face.yCenter * window.innerHeight;
+    // Convert face position to 3D offset
+    let x = (face.xCenter - 0.5) * 2;
+    let y = (0.5 - face.yCenter) * 2;
 
-    overlay.style.left = (x + 60) + "px";
-    overlay.style.top = (y - 80) + "px";
+    // Place model beside user
+    model.object3D.position.set(x + 1.2, y - 1, -3);
   }
 });
 
@@ -128,40 +97,25 @@ const camera = new Camera(video, {
 
 camera.start();
 
-// ================= MODE SWITCH =================
-function switchMode() {
-  mode = (mode === "selfie") ? "ar" : "selfie";
-
-  video.style.display = (mode==="selfie")?"block":"none";
-  overlay.style.display = (mode==="selfie")?"block":"none";
-  document.getElementById('ar-section').style.display = (mode==="ar")?"block":"none";
-}
-
-// ================= CAPTURE =================
+// CAPTURE FUNCTION
 function capture() {
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
 
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 
-  if (mode === "selfie") {
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  // Draw camera
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    const rect = overlay.getBoundingClientRect();
-    ctx.drawImage(overlay, rect.left, rect.top, rect.width, rect.height);
+  // Draw 3D scene
+  const scene = document.querySelector("a-scene canvas");
+  if (scene) {
+    ctx.drawImage(scene, 0, 0, canvas.width, canvas.height);
   }
 
-  if (mode === "ar") {
-    const scene = document.querySelector("a-scene canvas");
-    if (scene) {
-      ctx.drawImage(scene, 0, 0, canvas.width, canvas.height);
-    }
-  }
-
-  // DOWNLOAD
-  const link = document.createElement('a');
-  link.download = "vijay.png";
+  const link = document.createElement("a");
+  link.download = "vijay-ar.png";
   link.href = canvas.toDataURL();
   link.click();
 }
